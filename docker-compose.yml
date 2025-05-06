@@ -1,0 +1,40 @@
+# Ya no se necesita version: '3.8'
+services:
+  # Servicio de Base de Datos (PostgreSQL)
+  db:
+    image: postgres:15 # O la versión que prefieras
+    container_name: aeroseguridad-postgres # Nombre del contenedor DB
+    ports:
+      - "5432:5432" # Mapea puerto host:container
+    environment:
+      POSTGRES_DB: aeroseguridad_db # Nombre de la BD
+      POSTGRES_USER: postgres # Usuario por defecto
+      POSTGRES_PASSWORD: salva2020 # TU CONTRASEÑA
+    volumes:
+      - aeroseguridad-pgdata:/var/lib/postgresql/data # Volumen persistente
+    healthcheck: # <<<--- AÑADIDO: Verifica que Postgres esté listo
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aeroseguridad_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio de la Aplicación (Spring Boot + Vaadin)
+  app:
+    build: . # <<<--- CONSTRUYE la imagen usando el Dockerfile en el directorio actual
+    container_name: aeroseguridad-app # Nombre del contenedor App
+    ports:
+      - "8080:8080" # Mapea puerto host:container
+    environment:
+      # Configuración para conectar a la BD DENTRO de la red de Docker Compose
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/aeroseguridad_db # <<<--- USA 'db' (nombre del servicio) como host
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: salva2020 # <<<--- MISMA CONTRASEÑA que en 'db'
+      # (Opcional pero recomendado) Activa perfil 'docker' para configuraciones específicas
+      # SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      db: # <<<--- Asegura que 'app' espere a que 'db' esté saludable
+        condition: service_healthy
+
+volumes:
+  aeroseguridad-pgdata: # Define el volumen nombrado
+    # driver: local # Por defecto es local
