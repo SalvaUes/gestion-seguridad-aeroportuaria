@@ -4,7 +4,7 @@ export declare class WebSocketConnection extends Connection {
     socket?: any;
     canSend: boolean;
     constructor(url: string);
-    onReload(_strategy: string): void;
+    onReload(): void;
     onUpdate(_path: string, _content: string): void;
     onMessage(_message: any): void;
     handleMessage(msg: any): void;

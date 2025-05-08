@@ -4,6 +4,7 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
+import com.vaadin.flow.component.HasValue; // Asegúrate que esté importado
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -21,8 +22,9 @@ import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.shared.Registration;
 
-import java.time.Duration; // Para step
+import java.time.Duration;
 import java.util.List;
+import java.util.Optional; // Asegúrate que esté importado
 
 public class PermisoForm extends FormLayout {
 
@@ -32,7 +34,7 @@ public class PermisoForm extends FormLayout {
     DateTimePicker fechaFin = new DateTimePicker("Fin Permiso");
     ComboBox<TipoPermiso> tipoPermiso = new ComboBox<>("Tipo Permiso");
     TextArea motivo = new TextArea("Motivo");
-    TextField rutaDocumento = new TextField("Documento Adjunto (Ruta)"); // Simplificado
+    TextField rutaDocumento = new TextField("Documento Adjunto (Ruta)");
     ComboBox<EstadoSolicitudPermiso> estadoSolicitud = new ComboBox<>("Estado Solicitud");
 
     // Botones
@@ -42,33 +44,45 @@ public class PermisoForm extends FormLayout {
 
     // Binder
     Binder<Permiso> binder = new BeanValidationBinder<>(Permiso.class);
-    private Permiso permisoActual;
+    private Permiso permisoActual; // Referencia local al bean
 
     public PermisoForm(List<Agente> agentes) {
         addClassName("permiso-form");
 
-        // Configura ComboBoxes e Indicadores
+        // Configura ComboBoxes
         agente.setItems(agentes);
         agente.setItemLabelGenerator(ag -> ag != null ? ag.getNombre() + " " + ag.getApellido() : "");
-        agente.setRequiredIndicatorVisible(true); // Usa @NotNull de entidad
-
         tipoPermiso.setItems(TipoPermiso.values());
-        tipoPermiso.setRequiredIndicatorVisible(true); // Usa @NotNull de entidad
-
         estadoSolicitud.setItems(EstadoSolicitudPermiso.values());
-        estadoSolicitud.setRequiredIndicatorVisible(true); // Usa @NotNull de entidad
 
-        fechaInicio.setRequiredIndicatorVisible(true); // Usa @NotNull de entidad
+        // Configura DateTimePickers
         fechaInicio.setStep(Duration.ofMinutes(30));
-        fechaFin.setRequiredIndicatorVisible(true); // Usa @NotNull de entidad
         fechaFin.setStep(Duration.ofMinutes(30));
-        motivo.setRequiredIndicatorVisible(true); // Usa @NotBlank de entidad
 
-        // Enlaza campos (usará @NotNull, @NotBlank, @AssertTrue de Permiso)
-        binder.bindInstanceFields(this);
+        // --- MANUAL BINDING (Más explícito) ---
+        binder.forField(agente)
+              .asRequired("Debe seleccionar un agente.")
+              .bind(Permiso::getAgente, Permiso::setAgente);
+        binder.forField(fechaInicio)
+              .asRequired("La fecha/hora de inicio es obligatoria.")
+              .bind(Permiso::getFechaInicio, Permiso::setFechaInicio);
+        binder.forField(fechaFin)
+              .asRequired("La fecha/hora de fin es obligatoria.")
+              .bind(Permiso::getFechaFin, Permiso::setFechaFin);
+        binder.forField(tipoPermiso)
+              .asRequired("El tipo de permiso es obligatorio.")
+              .bind(Permiso::getTipoPermiso, Permiso::setTipoPermiso);
+        binder.forField(motivo)
+              .asRequired("El motivo no puede estar vacío.")
+              .bind(Permiso::getMotivo, Permiso::setMotivo);
+        binder.forField(rutaDocumento)
+              .bind(Permiso::getRutaDocumento, Permiso::setRutaDocumento);
+        binder.forField(estadoSolicitud)
+              .asRequired("El estado es obligatorio.")
+              .bind(Permiso::getEstadoSolicitud, Permiso::setEstadoSolicitud);
+        // --- FIN MANUAL BINDING ---
 
-        // Listener para actualizar botón Guardar (simplificado)
-        binder.addValueChangeListener(e -> updateSaveButtonState());
+        // --- ELIMINADO: ValueChangeListener para botón save ---
 
         add(agente, fechaInicio, fechaFin, tipoPermiso, motivo, rutaDocumento, estadoSolicitud, createButtonsLayout());
     }
@@ -85,71 +99,127 @@ public class PermisoForm extends FormLayout {
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, permisoActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
-        save.setEnabled(false); // Se habilita en setPermiso / listener
-        delete.setEnabled(false); // Se habilita en setPermiso si es existente
+        // Botones deshabilitados por defecto, se habilitan en setPermiso
+        save.setEnabled(false);
+        delete.setEnabled(false);
 
         return new HorizontalLayout(save, delete, cancel);
      }
 
      private void validateAndSave() {
-        try {
-            // writeBean ejecuta las validaciones (@NotNull, @AssertTrue, etc.)
+         try {
+            // Asegurarse que hay un bean asociado
+            if (permisoActual == null) {
+                 Notification.show("Error: No hay datos de permiso para guardar.", 3000, Notification.Position.MIDDLE)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 return;
+            }
+
+            // Validar explícitamente ANTES de escribir
+            BinderValidationStatus<Permiso> status = binder.validate();
+            if (status.hasErrors()) {
+                 String errorMsg = "Formulario inválido. ";
+                 // Intenta obtener el mensaje de error más específico
+                 Optional<String> beanError = status.getBeanValidationErrors().stream()
+                     .map(err -> err.getErrorMessage())
+                     .findFirst();
+                 Optional<String> fieldError = status.getFieldValidationErrors().stream()
+                     .map(err -> err.getMessage().orElse("Revise campos marcados"))
+                     .findFirst();
+
+                 if(beanError.isPresent()) errorMsg = beanError.get(); // Prioriza error de bean (@AssertTrue)
+                 else if (fieldError.isPresent()) errorMsg = fieldError.get(); // Muestra primer error de campo
+
+                 Notification.show(errorMsg, 3000, Notification.Position.MIDDLE)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 return; // No continuar si hay errores
+            }
+
+            // Si la validación pasa, escribir el bean y disparar evento
             binder.writeBean(permisoActual);
-            // Si llega aquí, es válido. Dispara el evento Save.
             fireEvent(new SaveEvent(this, permisoActual));
+
         } catch (ValidationException e) {
-             // Si writeBean falla, intentar mostrar mensaje de bean validation si existe
-             String errorMsg = "Formulario inválido. Revise los campos marcados.";
-             if (!binder.isValid() && !binder.validate().getBeanValidationErrors().isEmpty()) {
-                 errorMsg = binder.validate().getBeanValidationErrors().get(0).getErrorMessage();
-             }
-             Notification.show(errorMsg, 3000, Notification.Position.MIDDLE)
-                       .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            // Esta excepción podría ocurrir si writeBean fallara por otra razón
+            Notification.show("Error inesperado al validar/guardar.", 3000, Notification.Position.MIDDLE)
+                      .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        } catch (Exception e) {
+            Notification.show("Error inesperado: " + e.getMessage(), 3000, Notification.Position.MIDDLE)
+                      .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            e.printStackTrace(); // Loguear error inesperado
         }
     }
 
+     // --- MÉTODO setPermiso REVISADO Y SIMPLIFICADO ---
      public void setPermiso(Permiso permiso) {
-        this.permisoActual = permiso;
-        binder.readBean(permiso);
-        boolean isExisting = permiso != null && permiso.getIdPermiso() != null;
-        // Habilita delete solo si existe Y está en estado SOLICITADO? (Regla de negocio opcional)
-        delete.setEnabled(isExisting && permiso.getEstadoSolicitud() == EstadoSolicitudPermiso.SOLICITADO);
+        this.permisoActual = permiso; // Guarda la referencia local
+        binder.readBean(permiso); // Carga los datos en los campos del formulario
 
-        // Habilita/Deshabilita edición de estado
-        // Permitir cambiar estado solo si es existente?
-        estadoSolicitud.setEnabled(isExisting);
-        if (!isExisting) {
-             // Si es nuevo, forzar estado SOLICITADO y deshabilitar cambio
-             estadoSolicitud.setValue(EstadoSolicitudPermiso.SOLICITADO);
-             estadoSolicitud.setEnabled(false);
-        } else {
-            // Si es existente, permitir cambio (para aprobar/rechazar)
-             estadoSolicitud.setEnabled(true);
+        // Determina el estado basado en el objeto permiso recibido
+        boolean isExisting = permiso != null && permiso.getIdPermiso() != null;
+        boolean isFinalState = false; // Asume que no es final por defecto
+
+        if (isExisting) {
+            // Verifica si el estado es final (Aprobado o Rechazado)
+            isFinalState = (permiso.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO ||
+                            permiso.getEstadoSolicitud() == EstadoSolicitudPermiso.RECHAZADO);
+
+            // Habilita el botón Eliminar SOLO si es existente Y está en estado SOLICITADO
+            delete.setEnabled(permiso.getEstadoSolicitud() == EstadoSolicitudPermiso.SOLICITADO);
+
+            // Configura campos como solo lectura si el estado es final
+            agente.setReadOnly(isFinalState);
+            fechaInicio.setReadOnly(isFinalState);
+            fechaFin.setReadOnly(isFinalState);
+            tipoPermiso.setReadOnly(isFinalState);
+            motivo.setReadOnly(isFinalState);
+            rutaDocumento.setReadOnly(isFinalState);
+            estadoSolicitud.setReadOnly(isFinalState); // El estado también es solo lectura si es final
+            estadoSolicitud.setEnabled(!isFinalState); // Habilita cambio de estado solo si NO es final
+
+        } else if (permiso != null) { // Es un permiso nuevo (no nulo, pero sin ID)
+            delete.setEnabled(false); // No se puede eliminar uno nuevo
+            // Asegura que todos los campos sean editables
+            agente.setReadOnly(false);
+            fechaInicio.setReadOnly(false);
+            fechaFin.setReadOnly(false);
+            tipoPermiso.setReadOnly(false);
+            motivo.setReadOnly(false);
+            rutaDocumento.setReadOnly(false);
+            estadoSolicitud.setReadOnly(false); // Asegura que sea editable antes de setear valor
+            // Establece el estado por defecto a SOLICITADO y deshabilita su edición
+            estadoSolicitud.setValue(EstadoSolicitudPermiso.SOLICITADO);
+            estadoSolicitud.setEnabled(false);
+
+        } else { // Se está cerrando el editor (permiso es null)
+            delete.setEnabled(false);
+            // Asegura que todos los campos vuelvan a ser editables
+            agente.setReadOnly(false);
+            fechaInicio.setReadOnly(false);
+            fechaFin.setReadOnly(false);
+            tipoPermiso.setReadOnly(false);
+            motivo.setReadOnly(false);
+            rutaDocumento.setReadOnly(false);
+            estadoSolicitud.setEnabled(true); // Habilita el campo de estado
+            estadoSolicitud.setReadOnly(false); // Quita solo lectura
         }
 
-
-        updateSaveButtonState(); // Actualiza botón guardar
+        // Habilita el botón Guardar SOLAMENTE si hay un permiso cargado (nuevo o existente)
+        // Y si dicho permiso NO está en un estado final (Aprobado/Rechazado)
+        save.setEnabled(permiso != null && !isFinalState);
     }
+    // --- FIN MÉTODO setPermiso ---
 
-    // --- MÉTODO Actualizar estado botón Guardar (simplificado) ---
-    private void updateSaveButtonState() {
-        // Habilita si hay bean y el binder lo considera válido (según @NotNull, etc.)
-        save.setEnabled(binder.getBean() != null && binder.isValid());
-        // La validación @AssertTrue se comprobará al hacer click en Guardar (dentro de writeBean)
-    }
-    // --- FIN MÉTODO ---
-
-
-    // --- Eventos Personalizados ---
-    public static abstract class PermisoFormEvent extends ComponentEvent<PermisoForm> {
-        private Permiso permiso;
-        protected PermisoFormEvent(PermisoForm source, Permiso permiso) { super(source, false); this.permiso = permiso; }
-        public Permiso getPermiso() { return permiso; }
-    }
-    public static class SaveEvent extends PermisoFormEvent { SaveEvent(PermisoForm source, Permiso permiso) { super(source, permiso); } }
-    public static class DeleteEvent extends PermisoFormEvent { DeleteEvent(PermisoForm source, Permiso permiso) { super(source, permiso); } }
-    public static class CloseEvent extends PermisoFormEvent { CloseEvent(PermisoForm source) { super(source, null); } }
-    public <T extends ComponentEvent<?>> Registration addListener(Class<T> eventType, ComponentEventListener<T> listener) {
-        return getEventBus().addListener(eventType, listener);
-    }
+    // --- Eventos Personalizados (Sin cambios) ---
+     public static abstract class PermisoFormEvent extends ComponentEvent<PermisoForm> {
+         private Permiso permiso;
+         protected PermisoFormEvent(PermisoForm source, Permiso permiso) { super(source, false); this.permiso = permiso; }
+         public Permiso getPermiso() { return permiso; }
+     }
+     public static class SaveEvent extends PermisoFormEvent { SaveEvent(PermisoForm source, Permiso permiso) { super(source, permiso); } }
+     public static class DeleteEvent extends PermisoFormEvent { DeleteEvent(PermisoForm source, Permiso permiso) { super(source, permiso); } }
+     public static class CloseEvent extends PermisoFormEvent { CloseEvent(PermisoForm source) { super(source, null); } }
+     public <T extends ComponentEvent<?>> Registration addListener(Class<T> eventType, ComponentEventListener<T> listener) {
+         return getEventBus().addListener(eventType, listener);
+     }
 }

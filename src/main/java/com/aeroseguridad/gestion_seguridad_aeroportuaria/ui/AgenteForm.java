@@ -6,6 +6,7 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSegurida
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
+import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -20,6 +21,7 @@ import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -27,6 +29,7 @@ import com.vaadin.flow.shared.Registration;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class AgenteForm extends FormLayout {
 
@@ -45,7 +48,7 @@ public class AgenteForm extends FormLayout {
 
     // Botones
     Button save = new Button("Guardar");
-    Button delete = new Button("Desactivar"); // Cambiado texto para reflejar Soft Delete
+    Button delete = new Button("Desactivar");
     Button cancel = new Button("Cancelar");
 
     Binder<Agente> binder = new BeanValidationBinder<>(Agente.class);
@@ -86,10 +89,8 @@ public class AgenteForm extends FormLayout {
         posicionesHabilitadas.setItemLabelGenerator(PosicionSeguridad::getNombrePosicion);
         posicionesHabilitadas.addThemeVariants(CheckboxGroupVariant.LUMO_VERTICAL);
 
-        // Listener para actualizar botón Guardar
-        binder.addValueChangeListener(e -> updateSaveButtonState());
+        // --- ELIMINADO: ValueChangeListener para botón save ---
 
-        // Añade todos los componentes al layout
         add(nombre, apellido, numeroCarnet, genero, direccion, fechaNacimiento,
             telefono, email, rutaFotografia, activo,
             posicionesHabilitadas,
@@ -105,12 +106,10 @@ public class AgenteForm extends FormLayout {
         cancel.addClickShortcut(Key.ESCAPE);
 
         save.addClickListener(event -> validateAndSave());
-        // Evento Delete ahora corresponde a desactivar
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, agenteActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
-        // Se habilitan/deshabilitan en setAgente y updateSaveButtonState
-        save.setEnabled(false);
+        save.setEnabled(false); // Se habilitan en setAgente
         delete.setEnabled(false);
 
         return new HorizontalLayout(save, delete, cancel);
@@ -118,35 +117,51 @@ public class AgenteForm extends FormLayout {
 
     private void validateAndSave() {
         try {
+             if (agenteActual == null) {
+                 Notification.show("Error: No hay datos de agente para guardar.", 3000, Notification.Position.MIDDLE)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 return;
+            }
+            // Validar explícitamente ANTES de escribir
+            BinderValidationStatus<Agente> status = binder.validate();
+            if (status.hasErrors()) {
+                 Notification.show("Formulario inválido. Revise los campos marcados.", 3000, Notification.Position.MIDDLE)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 return; // No continuar si hay errores
+            }
+            // Si la validación pasa, escribir el bean y disparar evento
             binder.writeBean(agenteActual);
             fireEvent(new SaveEvent(this, agenteActual));
         } catch (ValidationException e) {
-             Notification.show("Formulario inválido. Revise los campos marcados.", 3000, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+             // Esta excepción podría ocurrir si writeBean fallara por otra razón
+             Notification.show("Error inesperado al validar/guardar.", 3000, Notification.Position.MIDDLE)
+                       .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        } catch (Exception e) {
+            Notification.show("Error inesperado: " + e.getMessage(), 3000, Notification.Position.MIDDLE)
+                      .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            e.printStackTrace();
         }
     }
 
     public void setAgente(Agente agente) {
         this.agenteActual = agente;
-        binder.readBean(agente);
-        boolean isExisting = agente != null && agente.getIdAgente() != null;
-        // Habilita botón desactivar solo si el agente existe y está activo
-        delete.setEnabled(isExisting && agente != null && agente.getActivo());
-        // Habilita/deshabilita campo 'activo' solo si es existente
+        binder.readBean(agente); // Carga datos en los campos
+
+        // Habilitar/Deshabilitar botones basado en si hay un agente cargado
+        boolean beanPresent = agente != null;
+        // Habilita Guardar si hay un bean (nuevo o existente). La validación se hará al hacer clic.
+        save.setEnabled(beanPresent);
+
+        boolean isExisting = beanPresent && agente.getIdAgente() != null;
+        // Habilita Desactivar solo si es existente y activo
+        delete.setEnabled(isExisting && agente.getActivo());
+        // Campo Activo solo editable si ya existe
         activo.setEnabled(isExisting);
-        if (!isExisting && activo.isEnabled()) {
-             activo.setValue(true); // Nuevos agentes siempre activos inicialmente en el form
+
+        if (!isExisting && beanPresent) {
+             activo.setValue(true); // Nuevos agentes por defecto activos
         }
-        updateSaveButtonState();
     }
-
-    // --- MÉTODO Actualizar estado botón Guardar ---
-    private void updateSaveButtonState() {
-        // Habilita si hay bean y es válido según las validaciones de campo/bean
-        save.setEnabled(binder.getBean() != null && binder.isValid());
-    }
-    // --- FIN MÉTODO ---
-
 
     // --- Eventos Personalizados ---
     public static abstract class AgenteFormEvent extends ComponentEvent<AgenteForm> {
@@ -155,7 +170,6 @@ public class AgenteForm extends FormLayout {
         public Agente getAgente() { return agente; }
     }
     public static class SaveEvent extends AgenteFormEvent { SaveEvent(AgenteForm source, Agente agente) { super(source, agente); } }
-    // DeleteEvent ahora significa "Desactivar"
     public static class DeleteEvent extends AgenteFormEvent { DeleteEvent(AgenteForm source, Agente agente) { super(source, agente); } }
     public static class CloseEvent extends AgenteFormEvent { CloseEvent(AgenteForm source) { super(source, null); } }
     public <T extends ComponentEvent<?>> Registration addListener(Class<T> eventType, ComponentEventListener<T> listener) {

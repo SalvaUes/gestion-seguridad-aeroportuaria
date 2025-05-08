@@ -4,6 +4,7 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
+import com.vaadin.flow.component.HasValue; // Importar
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -14,15 +15,18 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.BeanValidationBinder;
-import com.vaadin.flow.data.binder.Binder;
-import com.vaadin.flow.data.binder.BinderValidationStatus;
-import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.shared.Registration;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class VueloForm extends FormLayout {
 
@@ -35,50 +39,64 @@ public class VueloForm extends FormLayout {
     DateTimePicker fechaHoraLlegada = new DateTimePicker("Llegada Programada");
     ComboBox<EstadoVuelo> estado = new ComboBox<>("Estado");
     ComboBox<TipoOperacionVuelo> tipoOperacion = new ComboBox<>("Tipo Operación");
-    DateTimePicker finOperacionSeguridad = new DateTimePicker("Fin Op. Seguridad"); // Puede ser null
+    DateTimePicker finOperacionSeguridad = new DateTimePicker("Fin Op. Seguridad");
 
     // Botones
     Button save = new Button("Guardar");
     Button delete = new Button("Eliminar");
     Button cancel = new Button("Cancelar");
 
-    // Binder
-    Binder<Vuelo> binder = new BeanValidationBinder<>(Vuelo.class);
+    // Sin Binder para set/get
     private Vuelo vueloActual;
+
+    // Validador Manual
+    private final Validator validator;
 
     public VueloForm(List<Aerolinea> aerolineas) {
         addClassName("vuelo-form");
 
+        // Inicializar validador
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
+
         // Configuración Campos
-        numeroVuelo.setRequiredIndicatorVisible(true); // Usa @NotBlank
-        aerolinea.setRequiredIndicatorVisible(true); // Usa @NotNull
-        origen.setRequiredIndicatorVisible(true); // Usa @NotBlank
-        destino.setRequiredIndicatorVisible(true); // Usa @NotBlank
-        fechaHoraSalida.setRequiredIndicatorVisible(true); // Usa @NotNull
-        fechaHoraLlegada.setRequiredIndicatorVisible(true); // Usa @NotNull
-        estado.setRequiredIndicatorVisible(true); // Usa @NotNull
-        tipoOperacion.setRequiredIndicatorVisible(true); // Usa @NotNull
-        // finOperacionSeguridad no es requerido
+        numeroVuelo.setRequiredIndicatorVisible(true);
+        aerolinea.setRequiredIndicatorVisible(true);
+        origen.setRequiredIndicatorVisible(true);
+        destino.setRequiredIndicatorVisible(true);
+        fechaHoraSalida.setRequiredIndicatorVisible(true);
+        fechaHoraLlegada.setRequiredIndicatorVisible(true);
+        estado.setRequiredIndicatorVisible(true);
+        tipoOperacion.setRequiredIndicatorVisible(true);
 
         aerolinea.setItems(aerolineas);
         aerolinea.setItemLabelGenerator(a -> a != null ? a.getNombre() : "");
-        aerolinea.setRequired(true); // Redundante con @NotNull
-
         estado.setItems(EstadoVuelo.values());
-        estado.setRequired(true);
-
         tipoOperacion.setItems(TipoOperacionVuelo.values());
-        tipoOperacion.setRequired(true);
-
         fechaHoraSalida.setStep(Duration.ofMinutes(5));
         fechaHoraLlegada.setStep(Duration.ofMinutes(5));
         finOperacionSeguridad.setStep(Duration.ofMinutes(5));
 
-        // Enlaza campos (Usará anotaciones @NotNull, @NotBlank de Vuelo)
-        binder.bindInstanceFields(this);
+        // --- Listener para habilitar botón save ---
+        // Añadir listener a cada campo que, al cambiar, habilite el botón save
+        // si hay un objeto vueloActual presente.
+        HasValue.ValueChangeListener enableSaveListener = e -> {
+            if (save != null) { // Chequeo de seguridad
+                save.setEnabled(vueloActual != null);
+            }
+        };
 
-        // Listener para actualizar botón Guardar (simplificado)
-        binder.addValueChangeListener(event -> updateSaveButtonState());
+        numeroVuelo.addValueChangeListener(enableSaveListener);
+        aerolinea.addValueChangeListener(enableSaveListener);
+        origen.addValueChangeListener(enableSaveListener);
+        destino.addValueChangeListener(enableSaveListener);
+        fechaHoraSalida.addValueChangeListener(enableSaveListener);
+        fechaHoraLlegada.addValueChangeListener(enableSaveListener);
+        estado.addValueChangeListener(enableSaveListener);
+        tipoOperacion.addValueChangeListener(enableSaveListener);
+        finOperacionSeguridad.addValueChangeListener(enableSaveListener); // También en campos opcionales
+        // --- FIN Listener ---
+
 
         add(numeroVuelo, aerolinea, origen, destino, fechaHoraSalida, fechaHoraLlegada,
             estado, tipoOperacion, finOperacionSeguridad, createButtonsLayout());
@@ -92,57 +110,99 @@ public class VueloForm extends FormLayout {
         save.addClickShortcut(Key.ENTER);
         cancel.addClickShortcut(Key.ESCAPE);
 
-        save.addClickListener(event -> validateAndSave());
+        save.addClickListener(event -> validateAndSaveManually()); // Llama validación manual
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, vueloActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
-        save.setEnabled(false); // Se habilita en listener/setVuelo
-        delete.setEnabled(false); // Se habilita en setVuelo
+        save.setEnabled(false); // Deshabilitado inicialmente
+        delete.setEnabled(false);
 
         return new HorizontalLayout(save, delete, cancel);
     }
 
-     private void validateAndSave() {
-        try {
-            // writeBean validará usando las anotaciones de la entidad Vuelo (@NotNull, etc)
-            binder.writeBean(vueloActual);
-            // Si llega aquí, los campos individuales son válidos. Dispara evento.
-            fireEvent(new SaveEvent(this, vueloActual));
-        } catch (ValidationException e) {
-             // Intentar mostrar mensaje de bean validation si existe
-             String errorMsg = "Formulario inválido. Revise los campos marcados.";
-             if (!binder.isValid() && !binder.validate().getBeanValidationErrors().isEmpty()) {
-                 errorMsg = binder.validate().getBeanValidationErrors().get(0).getErrorMessage();
+     // --- validateAndSave MANUALMENTE ---
+     private void validateAndSaveManually() {
+         if (vueloActual == null) {
+             Notification.show("Error: No hay datos de vuelo para guardar.", 3000, Notification.Position.MIDDLE)
+                       .addThemeVariants(NotificationVariant.LUMO_ERROR);
+             return;
+         }
+         try {
+             // 1. Actualizar el bean manualmente desde los campos
+             vueloActual.setNumeroVuelo(numeroVuelo.getValue());
+             vueloActual.setAerolinea(aerolinea.getValue());
+             vueloActual.setOrigen(origen.getValue());
+             vueloActual.setDestino(destino.getValue());
+             vueloActual.setFechaHoraSalida(fechaHoraSalida.getValue());
+             vueloActual.setFechaHoraLlegada(fechaHoraLlegada.getValue());
+             vueloActual.setEstado(estado.getValue());
+             vueloActual.setTipoOperacion(tipoOperacion.getValue());
+             vueloActual.setFinOperacionSeguridad(finOperacionSeguridad.getValue());
+
+             // 2. Validar el bean manualmente usando Bean Validation API
+             Set<ConstraintViolation<Vuelo>> violations = validator.validate(vueloActual);
+
+             if (!violations.isEmpty()) {
+                 // Mostrar el primer mensaje de error encontrado
+                 String errorMsg = violations.stream()
+                                     .map(ConstraintViolation::getMessage)
+                                     .collect(Collectors.joining("; "));
+                 Notification.show("Error de validación: " + errorMsg, 3000, Notification.Position.MIDDLE)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 return; // No continuar si hay errores
              }
-             Notification.show(errorMsg, 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+             // 3. Si es válido, disparar el evento Save
+             fireEvent(new SaveEvent(this, vueloActual));
+
+        } catch (Exception e) {
+            Notification.show("Error inesperado al preparar/validar datos: " + e.getMessage(), 3000, Notification.Position.MIDDLE)
+                      .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            e.printStackTrace();
         }
     }
+    // --- FIN validateAndSave ---
 
+     // --- setVuelo MODIFICADO para poblar/limpiar campos manualmente ---
      public void setVuelo(Vuelo vuelo) {
-        this.vueloActual = vuelo;
-        binder.readBean(vuelo);
-        boolean isExisting = vuelo != null && vuelo.getIdVuelo() != null;
-        delete.setEnabled(isExisting);
+        this.vueloActual = vuelo; // Guarda la referencia
 
-        // Si es nuevo, poner estado PROGRAMADO por defecto?
-        if (!isExisting && estado.getValue() == null) {
-            estado.setValue(EstadoVuelo.PROGRAMADO);
-            // Forzar re-evaluación del botón guardar?
-             updateSaveButtonState();
+        // Poblar o limpiar campos manualmente
+        if (vuelo != null) {
+             numeroVuelo.setValue(vuelo.getNumeroVuelo() != null ? vuelo.getNumeroVuelo() : "");
+             aerolinea.setValue(vuelo.getAerolinea());
+             origen.setValue(vuelo.getOrigen() != null ? vuelo.getOrigen() : "");
+             destino.setValue(vuelo.getDestino() != null ? vuelo.getDestino() : "");
+             fechaHoraSalida.setValue(vuelo.getFechaHoraSalida());
+             fechaHoraLlegada.setValue(vuelo.getFechaHoraLlegada());
+             estado.setValue(vuelo.getEstado() != null ? vuelo.getEstado() : (vuelo.getIdVuelo() == null ? EstadoVuelo.PROGRAMADO : null));
+             tipoOperacion.setValue(vuelo.getTipoOperacion());
+             finOperacionSeguridad.setValue(vuelo.getFinOperacionSeguridad());
+
+             // Habilitar Guardar porque hay un bean (la validación será al hacer clic)
+             save.setEnabled(true);
+             // Habilitar Eliminar solo si es existente
+             delete.setEnabled(vuelo.getIdVuelo() != null);
+
+        } else { // Limpiar campos si vuelo es null (al cerrar editor)
+             numeroVuelo.clear();
+             aerolinea.clear();
+             origen.clear();
+             destino.clear();
+             fechaHoraSalida.clear();
+             fechaHoraLlegada.clear();
+             estado.clear();
+             tipoOperacion.clear();
+             finOperacionSeguridad.clear();
+             // Deshabilitar botones
+             save.setEnabled(false);
+             delete.setEnabled(false);
         }
-
-        updateSaveButtonState(); // Llama a la lógica actualizada
     }
-
-    // --- MÉTODO Actualizar estado botón Guardar (simplificado) ---
-    private void updateSaveButtonState() {
-        // Habilita si hay bean y el binder lo considera válido (según @NotNull, @NotBlank)
-        save.setEnabled(binder.getBean() != null && binder.isValid());
-    }
-    // --- FIN MÉTODO ---
+    // --- FIN setVuelo ---
 
 
-    // --- Eventos Personalizados ---
+    // --- Eventos Personalizados (Sin cambios) ---
      public static abstract class VueloFormEvent extends ComponentEvent<VueloForm> {
          private Vuelo vuelo;
          protected VueloFormEvent(VueloForm source, Vuelo vuelo) { super(source, false); this.vuelo = vuelo; }

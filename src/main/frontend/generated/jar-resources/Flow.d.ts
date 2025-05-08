@@ -25,7 +25,7 @@ interface FlowRoute {
 }
 export interface NavigationParameters {
     pathname: string;
-    search?: string;
+    search: string;
 }
 export interface PreventCommands {
     prevent: () => any;
@@ -66,7 +66,6 @@ export declare class Flow {
     private getFlowRouteQuery;
     private flowInit;
     private loadScript;
-    private findNonce;
     private injectAppIdScript;
     private flowInitClient;
     private flowInitUi;

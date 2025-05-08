@@ -34,32 +34,31 @@ _window.Vaadin.setLitRenderer = (
   returnChannel: (name: string, itemKey: string, args: any[]) => void,
   clientCallables: string[],
   propertyNamespace: string,
-  appId: string
 ) => {
-  const callablesCreator = (itemKey: string) => {
-    return clientCallables.map((clientCallable) => (...args: any[]) => {
-      if (itemKey !== undefined) {
-        returnChannel(clientCallable, itemKey, args[0] instanceof Event ? [] : [...args]);
-      }
-    });
-  };
-  const fnArgs = [
-    'html',
-    'root',
-    'live',
-    'appId',
-    'itemKey',
-    'model',
-    'item',
-    'index',
-    ...clientCallables,
-    `return html\`${templateExpression}\``
-  ];
-  const htmlGenerator = new Function(...fnArgs);
-  const renderFunction = (root: RenderRoot, model: ItemModel, itemKey: string) => {
-    const { item, index } = model;
-    render(htmlGenerator(html, root, live, appId, itemKey, model, item, index, ...callablesCreator(itemKey)), root);
-  };
+  // Dynamically created function that renders the templateExpression
+  // inside the given root element using Lit
+  const renderFunction = Function(`
+    "use strict";
+
+    const [render, html, live, returnChannel] = arguments;
+
+    return (root, model, itemKey) => {
+      const { item, index } = model;
+      ${clientCallables
+        .map((clientCallable) => {
+          // Map all the client-callables as inline functions so they can be accessed from the template literal
+          return `
+          const ${clientCallable} = (...args) => {
+            if (itemKey !== undefined) {
+              returnChannel('${clientCallable}', itemKey, args[0] instanceof Event ? [] : [...args]);
+            }
+          }`;
+        })
+        .join('')}
+
+      render(html\`${templateExpression}\`, root)
+    }
+  `)(render, html, live, returnChannel);
 
   const renderer: Renderer = (root, _, model) => {
     const { item } = model;
@@ -76,7 +75,7 @@ _window.Vaadin.setLitRenderer = (
     // this specific LitRenderer instance. The renderer instance specific
     // "propertyNamespace" prefix is stripped from the property name at this point:
     //
-    // item: { key: "2", lr_3769df5394a74ef3_lastName: "Tyler"}
+    // item: { key: "2", lr_3_lastName: "Tyler"}
     // ->
     // mappedItem: { lastName: "Tyler" }
     const mappedItem: { [key: string]: any } = {};
