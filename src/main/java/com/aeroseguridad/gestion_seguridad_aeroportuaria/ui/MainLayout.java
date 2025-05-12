@@ -1,12 +1,13 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import com.vaadin.flow.component.Component; // Asegúrate de importar Component
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Span; // Asegúrate de importar Span
-import com.vaadin.flow.component.icon.Icon; // Asegúrate de importar Icon
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -15,6 +16,10 @@ import com.vaadin.flow.router.HighlightConditions;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+
+// Import para la vista de gestión de permisos agente-aerolínea
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.PermisoAgenteAerolineaListView;
+
 
 public class MainLayout extends AppLayout {
 
@@ -40,21 +45,36 @@ public class MainLayout extends AppLayout {
         addToNavbar(header);
     }
 
-    private void createDrawer() {
-        // ... (Links Inicio, Aerolíneas, Vuelos, Agentes, Turnos, Permisos como estaban) ...
-        RouterLink inicioLink = new RouterLink(); inicioLink.add(VaadinIcon.HOME.create(), new Span(" Inicio")); inicioLink.setRoute(MainView.class); inicioLink.setHighlightCondition(HighlightConditions.locationPrefix(""));
-        RouterLink aerolineasLink = new RouterLink(); aerolineasLink.add(VaadinIcon.AIRPLANE.create(), new Span(" Aerolíneas")); aerolineasLink.setRoute(AerolineaListView.class);
-        RouterLink vuelosLink = new RouterLink(); vuelosLink.add(VaadinIcon.FLIGHT_TAKEOFF.create(), new Span(" Vuelos")); vuelosLink.setRoute(VueloListView.class);
-        RouterLink agentesLink = new RouterLink(); agentesLink.add(VaadinIcon.USERS.create(), new Span(" Agentes")); agentesLink.setRoute(AgenteListView.class);
-        RouterLink turnosLink = new RouterLink(); turnosLink.add(VaadinIcon.CLOCK.create(), new Span(" Turnos")); turnosLink.setRoute(TurnoListView.class);
-        RouterLink permisosLink = new RouterLink(); permisosLink.add(VaadinIcon.CALENDAR_USER.create(), new Span(" Permisos")); permisosLink.setRoute(PermisoListView.class);
+    private RouterLink createMenuLink(Class<? extends Component> viewClass, String caption, VaadinIcon iconName) {
+        RouterLink link = new RouterLink();
+        Icon icon = iconName.create();
+        Span span = new Span(caption);
 
-        // --- INICIO: AÑADIR LINK POSICIONES ---
-        RouterLink posicionesLink = new RouterLink();
-        Icon checkSquareIcon = VaadinIcon.CHECK_SQUARE_O.create(); // Icono para posiciones/tareas
-        posicionesLink.add(checkSquareIcon, new Span(" Posiciones"));
-        posicionesLink.setRoute(PosicionListView.class); // Apunta a la nueva vista
-        // --- FIN: AÑADIR LINK POSICIONES ---
+        HorizontalLayout itemLayout = new HorizontalLayout(icon, span);
+        itemLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
+        // Opcional: itemLayout.getStyle().set("gap", "8px"); // Espacio entre icono y texto
+
+        link.add(itemLayout);
+        link.setRoute(viewClass);
+        link.setHighlightCondition(HighlightConditions.locationPrefix());
+        return link;
+    }
+
+    private void createDrawer() {
+        RouterLink inicioLink = createMenuLink(MainView.class, "Inicio", VaadinIcon.HOME);
+        RouterLink aerolineasLink = createMenuLink(AerolineaListView.class, "Aerolíneas", VaadinIcon.AIRPLANE);
+        RouterLink vuelosLink = createMenuLink(VueloListView.class, "Vuelos", VaadinIcon.FLIGHT_TAKEOFF);
+        RouterLink agentesLink = createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS);
+        RouterLink turnosLink = createMenuLink(TurnoListView.class, "Turnos", VaadinIcon.CLOCK);
+        RouterLink permisosLink = createMenuLink(PermisoListView.class, "Permisos", VaadinIcon.CALENDAR_USER);
+        RouterLink posicionesLink = createMenuLink(PosicionListView.class, "Posiciones", VaadinIcon.CHECK_SQUARE_O);
+
+        // Link para la nueva vista de gestión de Permisos Agente-Aerolínea
+        RouterLink permisoAgenteAerolineaLink = createMenuLink(
+            PermisoAgenteAerolineaListView.class,
+            "Permisos Aerolíneas", // Texto descriptivo para el menú
+            VaadinIcon.CONNECT // O el ícono que prefieras (USER_CHECK, SHIELD)
+        );
 
 
         addToDrawer(new VerticalLayout(
@@ -64,7 +84,8 @@ public class MainLayout extends AppLayout {
                 agentesLink,
                 turnosLink,
                 permisosLink,
-                posicionesLink // Añade el nuevo link
+                posicionesLink,
+                permisoAgenteAerolineaLink // Añadido el nuevo link
         ));
     }
 

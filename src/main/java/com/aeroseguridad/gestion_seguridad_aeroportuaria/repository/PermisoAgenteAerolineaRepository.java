@@ -18,13 +18,16 @@ public interface PermisoAgenteAerolineaRepository extends JpaRepository<PermisoA
     List<PermisoAgenteAerolinea> findByAerolinea(Aerolinea aerolinea);
     Optional<PermisoAgenteAerolinea> findByAgenteAndAerolinea(Agente agente, Aerolinea aerolinea);
 
-    // Para vistas que muestren detalles
-    @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea WHERE paa.agente = :agente")
-    List<PermisoAgenteAerolinea> findByAgenteFetchingAerolinea(@Param("agente") Agente agente);
-
-    @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea WHERE paa.aerolinea = :aerolinea")
-    List<PermisoAgenteAerolinea> findByAerolineaFetchingAgente(@Param("aerolinea") Aerolinea aerolinea);
-
+    // Para vistas que muestren detalles con JOIN FETCH para evitar N+1
     @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea")
     List<PermisoAgenteAerolinea> findAllFetchingAll();
+
+    @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea WHERE paa.idPermisoAa = :id")
+    Optional<PermisoAgenteAerolinea> findByIdFetchingAll(@Param("id") Long id);
+
+    @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea WHERE paa.agente = :agente")
+    List<PermisoAgenteAerolinea> findByAgenteFetchingAll(@Param("agente") Agente agente);
+
+    @Query("SELECT paa FROM PermisoAgenteAerolinea paa JOIN FETCH paa.agente JOIN FETCH paa.aerolinea WHERE paa.aerolinea = :aerolinea")
+    List<PermisoAgenteAerolinea> findByAerolineaFetchingAll(@Param("aerolinea") Aerolinea aerolinea);
 }

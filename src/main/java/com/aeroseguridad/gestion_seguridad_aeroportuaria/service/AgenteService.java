@@ -4,10 +4,11 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PosicionSeguridadRepository;
-import jakarta.persistence.EntityNotFoundException; // Para manejo de errores
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils; // Importar StringUtils
 
 import java.util.List;
 import java.util.Optional;
@@ -19,61 +20,68 @@ public class AgenteService {
     private final AgenteRepository agenteRepository;
     private final PosicionSeguridadRepository posicionSeguridadRepository;
 
-    // Modificado para buscar solo activos Y con filtro opcional
     @Transactional(readOnly = true)
     public List<Agente> findAllActiveForView(String searchTerm) {
-        if (searchTerm == null || searchTerm.isEmpty()) {
-            // Necesitamos un método en el repo que busque solo activos con JOIN FETCH
-            return agenteRepository.findActivosFetchingPosiciones(); // <-- NECESITAMOS CREAR ESTE MÉTODO
+        if (!StringUtils.hasText(searchTerm)) { // Usar StringUtils.hasText
+            return agenteRepository.findActivosFetchingPosiciones();
         } else {
-             // Necesitamos un método en el repo que busque por término Y activos con JOIN FETCH
-            return agenteRepository.searchActivosByNombreOrApellidoFetchingPosiciones(searchTerm); // <-- NECESITAMOS CREAR ESTE MÉTODO
+            return agenteRepository.searchActivosByNombreOrApellidoFetchingPosiciones(searchTerm.trim());
         }
     }
 
     @Transactional(readOnly = true)
     public Optional<Agente> findById(Long id) {
+        // Devuelve con o sin posiciones según la necesidad. Si se necesita siempre con posiciones:
+        // return agenteRepository.findByIdFetchingPosiciones(id);
         return agenteRepository.findById(id);
     }
 
      @Transactional(readOnly = true)
     public Optional<Agente> findByIdFetchingPosiciones(Long id) {
-         return agenteRepository.findById(id); // Considerar crear query específica con fetch si es necesario aquí
+         return agenteRepository.findByIdFetchingPosiciones(id);
     }
 
 
+    // --- NUEVO: Método para buscar por número de carnet ---
+    @Transactional(readOnly = true)
+    public Optional<Agente> findActivoByNumeroCarnet(String numeroCarnet) {
+        if (!StringUtils.hasText(numeroCarnet)) {
+            return Optional.empty();
+        }
+        return agenteRepository.findActivoByNumeroCarnetIgnoreCaseFetchingPosiciones(numeroCarnet.trim());
+    }
+    // --- FIN NUEVO MÉTODO ---
+
     @Transactional
     public Agente save(Agente agente) {
-        // Asegurarse que si es nuevo, esté activo por defecto
-        if (agente.getIdAgente() == null) {
+        if (agente.getIdAgente() == null && agente.getActivo() == null) { // Asegurar que nuevos sean activos
             agente.setActivo(true);
+        } else if (agente.getIdAgente() == null) { // Si es nuevo pero activo ya está seteado
+             agente.setActivo(true); // Redundante pero seguro
         }
         return agenteRepository.save(agente);
     }
 
-    // --- MÉTODO deleteById ELIMINADO ---
-    // public void deleteById(Long id) {
-    //     agenteRepository.deleteById(id);
-    // }
-
-    // --- NUEVO MÉTODO para DESACTIVAR (Soft Delete) ---
     @Transactional
     public void deactivateById(Long id) {
         Agente agente = agenteRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado con ID: " + id));
-        agente.setActivo(false); // Cambia el estado a inactivo
-        agenteRepository.save(agente); // Guarda el cambio
+        agente.setActivo(false);
+        agenteRepository.save(agente);
     }
-    // --- FIN NUEVO MÉTODO ---
 
-    public long count() {
-        // Podríamos querer contar solo activos:
-        // return agenteRepository.countByActivoTrue(); // <-- Necesitaríamos este método en el repo
-        return agenteRepository.count(); // Por ahora cuenta todos
+    public long countActive() { // Podrías necesitar un método en el repo: countByActivoTrue()
+        return agenteRepository.findActivosFetchingPosiciones().size(); // Menos eficiente que un count query
+    }
+
+    public long countAll() {
+        return agenteRepository.count();
     }
 
     @Transactional(readOnly = true)
     public List<PosicionSeguridad> findAllPosiciones() {
-        return posicionSeguridadRepository.findAll();
+        // Devolver solo posiciones activas para asignar a agentes?
+        // return posicionSeguridadRepository.findByActivoTrueOrderByNombrePosicionAsc();
+        return posicionSeguridadRepository.findAll(); // O todas, y se filtra en UI si es necesario
     }
 }
