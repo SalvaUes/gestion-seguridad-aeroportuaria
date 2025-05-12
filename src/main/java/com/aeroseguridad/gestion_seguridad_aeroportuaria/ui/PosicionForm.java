@@ -9,7 +9,7 @@ import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.checkbox.Checkbox; // Importar Checkbox
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.notification.Notification;
@@ -17,7 +17,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.BeanValidationBinder; // Aún lo usamos para validación
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
@@ -26,44 +26,44 @@ import java.util.Optional;
 
 public class PosicionForm extends FormLayout {
 
-    // Campos
     TextField nombrePosicion = new TextField("Nombre Posición");
     TextArea descripcion = new TextArea("Descripción");
     ComboBox<Genero> generoRequerido = new ComboBox<>("Género Requerido");
     Checkbox requiereEntrenamientoEspecial = new Checkbox("Requiere Entrenamiento Especial");
+    Checkbox activo = new Checkbox("Activo"); // <-- NUEVO CAMPO
 
-    // Botones
     Button save = new Button("Guardar");
-    Button delete = new Button("Eliminar");
+    Button delete = new Button("Desactivar"); // <-- Texto cambiado
     Button cancel = new Button("Cancelar");
 
-    // Binder
     Binder<PosicionSeguridad> binder = new BeanValidationBinder<>(PosicionSeguridad.class);
     private PosicionSeguridad posicionActual;
 
     public PosicionForm() {
         addClassName("posicion-form");
 
-        // Configuración campos
-        generoRequerido.setItems(Genero.values()); // Incluye CUALQUIERA
-        nombrePosicion.setRequiredIndicatorVisible(true); // Usa @NotBlank
-        generoRequerido.setRequiredIndicatorVisible(true); // Usa @NotNull
+        generoRequerido.setItems(Genero.values());
+        nombrePosicion.setRequiredIndicatorVisible(true);
+        generoRequerido.setRequiredIndicatorVisible(true);
+        activo.setValue(true); // Por defecto activo al crear
 
-        // --- MANUAL BINDING (Más robusto si bindInstanceFields da problemas) ---
-         binder.forField(nombrePosicion)
-               .asRequired("El nombre de la posición es obligatorio.") // Mensaje para UI
-               .bind(PosicionSeguridad::getNombrePosicion, PosicionSeguridad::setNombrePosicion);
-         binder.forField(descripcion)
-               .bind(PosicionSeguridad::getDescripcion, PosicionSeguridad::setDescripcion);
-         binder.forField(generoRequerido)
-               .asRequired("Debe seleccionar un género requerido.") // Mensaje para UI
-               .bind(PosicionSeguridad::getGeneroRequerido, PosicionSeguridad::setGeneroRequerido);
-         binder.forField(requiereEntrenamientoEspecial)
-               // No necesita asRequired si el default (false) es aceptable
-               .bind(PosicionSeguridad::isRequiereEntrenamientoEspecial, PosicionSeguridad::setRequiereEntrenamientoEspecial);
+        // --- BINDING MANUAL ---
+        binder.forField(nombrePosicion)
+              .asRequired("El nombre de la posición es obligatorio.")
+              .bind(PosicionSeguridad::getNombrePosicion, PosicionSeguridad::setNombrePosicion);
+        binder.forField(descripcion)
+              .bind(PosicionSeguridad::getDescripcion, PosicionSeguridad::setDescripcion);
+        binder.forField(generoRequerido)
+              .asRequired("Debe seleccionar un género requerido.")
+              .bind(PosicionSeguridad::getGeneroRequerido, PosicionSeguridad::setGeneroRequerido);
+        binder.forField(requiereEntrenamientoEspecial)
+              .bind(PosicionSeguridad::isRequiereEntrenamientoEspecial, PosicionSeguridad::setRequiereEntrenamientoEspecial);
+        binder.forField(activo) // <-- BINDING CAMPO ACTIVO
+              .bind(PosicionSeguridad::getActivo, PosicionSeguridad::setActivo);
         // --- FIN MANUAL BINDING ---
 
-        add(nombrePosicion, descripcion, generoRequerido, requiereEntrenamientoEspecial, createButtonsLayout());
+        // Añadir 'activo' al layout
+        add(nombrePosicion, descripcion, generoRequerido, requiereEntrenamientoEspecial, activo, createButtonsLayout());
     }
 
     private Component createButtonsLayout() {
@@ -77,8 +77,8 @@ public class PosicionForm extends FormLayout {
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, posicionActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
-        save.setEnabled(false); // Habilitado en setPosicion
-        delete.setEnabled(false); // Habilitado en setPosicion
+        save.setEnabled(false);
+        delete.setEnabled(false);
         return new HorizontalLayout(save, delete, cancel);
     }
 
@@ -89,26 +89,28 @@ public class PosicionForm extends FormLayout {
                            .addThemeVariants(NotificationVariant.LUMO_ERROR);
                  return;
             }
-            // Validar explícitamente ANTES de escribir
-            BinderValidationStatus<PosicionSeguridad> status = binder.validate();
+            // Forzar la lectura de los campos al bean ANTES de validar con el binder
+            // (Esto es necesario porque no usamos writeBean si no usamos el binder para todo)
+            posicionActual.setNombrePosicion(nombrePosicion.getValue());
+            posicionActual.setDescripcion(descripcion.getValue());
+            posicionActual.setGeneroRequerido(generoRequerido.getValue());
+            posicionActual.setRequiereEntrenamientoEspecial(requiereEntrenamientoEspecial.getValue());
+            posicionActual.setActivo(activo.getValue()); // Actualizar 'activo'
+
+            BinderValidationStatus<PosicionSeguridad> status = binder.validate(); // Validar con las anotaciones
             if (status.hasErrors()) {
-                 // Intenta obtener un mensaje de error útil
                  String errorMsg = status.getValidationErrors().stream()
                      .map(err -> err.getErrorMessage())
                      .findFirst()
                      .orElse("Formulario inválido. Revise los campos marcados.");
                  Notification.show(errorMsg, 3000, Notification.Position.MIDDLE)
                            .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                 return; // No continuar si hay errores
+                 return;
             }
-            // Si la validación pasa, escribir el bean y disparar evento
-            binder.writeBean(posicionActual);
+            // No necesitamos binder.writeBean(posicionActual) si ya actualizamos manualmente
             fireEvent(new SaveEvent(this, posicionActual));
-        } catch (ValidationException e) {
-             Notification.show("Error inesperado al validar/guardar.", 2000, Notification.Position.MIDDLE)
-                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        } catch (Exception e) {
-             Notification.show("Error inesperado: " + e.getMessage(), 3000, Notification.Position.MIDDLE)
+        } catch (Exception e) { // Cambio de ValidationException a Exception para capturar más
+             Notification.show("Error inesperado al guardar: " + e.getMessage(), 3000, Notification.Position.MIDDLE)
                  .addThemeVariants(NotificationVariant.LUMO_ERROR);
             e.printStackTrace();
         }
@@ -116,28 +118,37 @@ public class PosicionForm extends FormLayout {
 
     public void setPosicion(PosicionSeguridad posicion) {
         this.posicionActual = posicion;
-        binder.readBean(posicion); // Carga datos en los campos
+        binder.setBean(posicion); // Usar setBean en lugar de readBean para asociar al binder y validar
 
-        // Habilitar/Deshabilitar botones basado en si hay una Posicion cargada
         boolean beanPresent = posicion != null;
-        // Habilita Guardar si hay un bean (nuevo o existente). La validación se hará al hacer clic.
-        save.setEnabled(beanPresent);
-
         boolean isExisting = beanPresent && posicion.getIdPosicion() != null;
-        // Habilita Eliminar solo si es un registro existente
-        delete.setEnabled(isExisting);
 
-        // Establecer valores por defecto para nuevos registros si es necesario
-        if (!isExisting && beanPresent) {
-             if(generoRequerido.getValue() == null) {
-                 generoRequerido.setValue(Genero.CUALQUIERA); // Asegurar default
-             }
-             // El checkbox 'requiereEntrenamientoEspecial' usará el default 'false' del bean
+        if (beanPresent) {
+            nombrePosicion.setValue(posicion.getNombrePosicion() != null ? posicion.getNombrePosicion() : "");
+            descripcion.setValue(posicion.getDescripcion() != null ? posicion.getDescripcion() : "");
+            generoRequerido.setValue(posicion.getGeneroRequerido() != null ? posicion.getGeneroRequerido() : Genero.CUALQUIERA);
+            requiereEntrenamientoEspecial.setValue(posicion.isRequiereEntrenamientoEspecial());
+            activo.setValue(posicion.getActivo()); // Cargar estado 'activo'
+
+            save.setEnabled(true); // Habilitar Guardar si hay bean
+            // Habilitar Desactivar solo si es existente y actualmente activo
+            delete.setEnabled(isExisting && posicion.getActivo());
+            // Permitir editar 'activo' solo para existentes
+            activo.setEnabled(isExisting);
+
+        } else { // Limpiar formulario
+            nombrePosicion.clear();
+            descripcion.clear();
+            generoRequerido.clear();
+            requiereEntrenamientoEspecial.clear();
+            activo.setValue(true); // Valor por defecto para nuevos
+            activo.setEnabled(false); // Deshabilitado si no hay bean
+            save.setEnabled(false);
+            delete.setEnabled(false);
         }
     }
 
-    // --- Eventos Personalizados (Sin cambios) ---
-    public static abstract class PosicionFormEvent extends ComponentEvent<PosicionForm> {
+    public static abstract class PosicionFormEvent extends ComponentEvent<PosicionForm> { /* ... sin cambios ... */
         private PosicionSeguridad posicion;
         protected PosicionFormEvent(PosicionForm source, PosicionSeguridad posicion) { super(source, false); this.posicion = posicion; }
         public PosicionSeguridad getPosicion() { return posicion; }

@@ -4,6 +4,8 @@ public enum TipoPermiso {
     VACACIONES,
     ENFERMEDAD,
     PERSONAL,
-    INCAPACIDAD, // Añadido
+    INCAPACIDAD,
+    EMBARAZO, // Nuevo
+    DEFUNCION_FAMILIAR, // Nuevo
     OTRO
 }

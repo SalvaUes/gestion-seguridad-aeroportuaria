@@ -13,11 +13,13 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -25,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,9 +45,10 @@ public class TurnoListView extends VerticalLayout {
     private DatePicker fechaInicioFiltro;
     private DatePicker fechaFinFiltro;
     private Button addTurnoButton;
-    private TurnoForm form; // Usar la versión final SIN debug detallado
+    private TurnoForm form;
     private SplitLayout splitLayout;
     private HorizontalLayout toolbar;
+    private ListDataProvider<Turno> dataProvider;
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -59,9 +63,10 @@ public class TurnoListView extends VerticalLayout {
     @PostConstruct
     private void initLayout() {
         try {
+            dataProvider = new ListDataProvider<>(new ArrayList<>());
             createGrid();
-            createToolbar();
-            createForm(); // Usa la versión final de TurnoForm
+            createToolbar(); // Crea los DatePickers y el botón
+            createForm();
 
             if (this.form == null) {
                  throw new IllegalStateException("Error crítico: TurnoForm no pudo ser instanciado.");
@@ -74,7 +79,9 @@ public class TurnoListView extends VerticalLayout {
 
             add(toolbar, splitLayout);
 
-            setDefaultDateFilters();
+            // YA NO LLAMAMOS A setDefaultDateFilters() para poner valores.
+            // Los DatePickers estarán vacíos por defecto.
+            // Llamar a updateList() directamente para la carga inicial.
             updateList();
             closeEditor();
 
@@ -93,6 +100,10 @@ public class TurnoListView extends VerticalLayout {
         fechaFinFiltro = new DatePicker("Fecha Hasta");
         addTurnoButton = new Button("Nuevo Turno", VaadinIcon.PLUS.create());
 
+        fechaInicioFiltro.setClearButtonVisible(true);
+        fechaFinFiltro.setClearButtonVisible(true);
+
+        // Los listeners llamarán a updateList cuando cambien las fechas
         fechaInicioFiltro.addValueChangeListener(e -> updateList());
         fechaFinFiltro.addValueChangeListener(e -> updateList());
         addTurnoButton.addClickListener(click -> addTurno());
@@ -106,6 +117,7 @@ public class TurnoListView extends VerticalLayout {
         grid = new Grid<>(Turno.class, false);
         grid.addClassName("turno-grid");
         grid.setSizeFull();
+        grid.setDataProvider(dataProvider);
 
         grid.addColumn(turno -> {
             Agente agente = turno.getAgente();
@@ -117,7 +129,6 @@ public class TurnoListView extends VerticalLayout {
         grid.addColumn(Turno::getEstadoTurno).setHeader("Estado").setSortable(true);
 
         grid.getColumns().forEach(col -> col.setAutoWidth(true).setResizable(true));
-
         grid.asSingleSelect().addValueChangeListener(event -> editTurno(event.getValue()));
     }
 
@@ -126,12 +137,11 @@ public class TurnoListView extends VerticalLayout {
     }
 
      private void createForm() {
-        try {
+         try {
             if (agenteService == null) {
                  throw new IllegalStateException("AgenteService no inyectado");
             }
             List<Agente> agentesActivos = agenteService.findAllActiveForView("");
-            // Asegúrate que TurnoForm sea la versión final (SIN debug detallado)
             this.form = new TurnoForm(agentesActivos);
             this.form.setWidth("400px");
             this.form.addListener(TurnoForm.SaveEvent.class, this::saveTurno);
@@ -146,51 +156,61 @@ public class TurnoListView extends VerticalLayout {
         }
     }
 
-     // --- MÉTODO updateList CON grid.getDataProvider().refreshAll() ---
      private void updateList() {
-         if (grid == null || fechaInicioFiltro == null || fechaFinFiltro == null) {
-              return; // No hacer nada si los componentes no están listos
+         if (grid == null || dataProvider == null || fechaInicioFiltro == null || fechaFinFiltro == null) {
+              return;
          }
 
          LocalDate fechaInicio = fechaInicioFiltro.getValue();
          LocalDate fechaFin = fechaFinFiltro.getValue();
+         List<Turno> turnos;
 
-         if (fechaInicio == null || fechaFin == null) {
-             grid.setItems(Collections.emptyList());
-             return;
-         }
-         if(fechaFin.isBefore(fechaInicio)) {
-             grid.setItems(Collections.emptyList());
-             return;
-         }
-
-         try {
-             LocalDateTime inicioRango = fechaInicio.atStartOfDay();
-             LocalDateTime finRango = fechaFin.atTime(LocalTime.MAX);
-             List<Turno> turnos = turnoService.findTurnosByDateRange(inicioRango, finRango);
-             grid.setItems(turnos); // Establece los nuevos items
-
-             // --- AÑADIDO: Forzar refresco del DataProvider ---
-             if (grid.getDataProvider() != null) {
-                 grid.getDataProvider().refreshAll();
+         // Si AMBAS fechas están presentes y son válidas, filtra por rango
+         if (fechaInicio != null && fechaFin != null) {
+             if(fechaFin.isBefore(fechaInicio)) {
+                 Notification.show("La 'Fecha Hasta' debe ser posterior o igual a la 'Fecha Desde'.", 3000, Notification.Position.BOTTOM_START)
+                           .addThemeVariants(NotificationVariant.LUMO_WARNING);
+                 turnos = Collections.emptyList();
+             } else {
+                 try {
+                     LocalDateTime inicioRango = fechaInicio.atStartOfDay();
+                     LocalDateTime finRango = fechaFin.atTime(LocalTime.MAX);
+                     turnos = turnoService.findTurnosByDateRange(inicioRango, finRango);
+                 } catch (Exception e) {
+                     Notification.show("Error al cargar turnos filtrados: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                             .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                     turnos = Collections.emptyList();
+                     e.printStackTrace();
+                 }
              }
-             // --- FIN AÑADIDO ---
-
-         } catch (Exception e) {
-            Notification.show("Error al cargar turnos: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            grid.setItems(Collections.emptyList());
-            e.printStackTrace();
+         } else {
+             // Si una o ambas fechas están vacías, carga TODOS los turnos
+             try {
+                 turnos = turnoService.findAllTurnosFetchingAgente();
+             } catch (Exception e) {
+                 Notification.show("Error al cargar todos los turnos: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                 turnos = Collections.emptyList();
+                 e.printStackTrace();
+             }
          }
-    }
-    // --- FIN MÉTODO updateList ---
 
-     private void setDefaultDateFilters() {
-         if (fechaInicioFiltro == null || fechaFinFiltro == null) return;
-        LocalDate hoy = LocalDate.now();
-        fechaInicioFiltro.setValue(hoy.with(java.time.DayOfWeek.MONDAY));
-        fechaFinFiltro.setValue(hoy.with(java.time.DayOfWeek.SUNDAY));
+         dataProvider.getItems().clear();
+         dataProvider.getItems().addAll(turnos);
+         dataProvider.refreshAll();
     }
+
+    // --- MÉTODO setDefaultDateFilters YA NO ESTABLECE VALORES ---
+     private void setDefaultDateFilters() {
+         // Este método se llamaba en initLayout pero ahora no es necesario
+         // que ponga valores por defecto si queremos que inicien vacíos.
+         // Los DatePicker inician vacíos por sí mismos.
+         // Si en el futuro quieres un rango por defecto, lo pondrías aquí y llamarías updateList.
+         // LocalDate hoy = LocalDate.now();
+         // fechaInicioFiltro.setValue(hoy.with(java.time.DayOfWeek.MONDAY));
+         // fechaFinFiltro.setValue(hoy.with(java.time.DayOfWeek.SUNDAY));
+    }
+    // --- FIN MÉTODO ---
 
     private void addTurno() {
         if (form == null) return;
@@ -210,8 +230,11 @@ public class TurnoListView extends VerticalLayout {
 
      private void saveTurno(TurnoForm.SaveEvent event) {
         try {
-            turnoService.save(event.getTurno());
-            updateList(); // Llama a refrescar la lista (que ahora incluye refreshAll)
+            Turno turnoGuardado = turnoService.save(event.getTurno());
+            // Después de guardar, siempre llamamos a updateList.
+            // Si los filtros de fecha están vacíos, mostrará todos (incluyendo el nuevo).
+            // Si los filtros tienen un rango, el nuevo turno aparecerá si cae en ese rango.
+            updateList();
             closeEditor();
             Notification.show("Turno guardado.", 2000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -220,7 +243,7 @@ public class TurnoListView extends VerticalLayout {
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (ConstraintViolationException e) {
               String violations = e.getConstraintViolations().stream()
-                                   .map(cv -> cv.getMessage())
+                                   .map(ConstraintViolation::getMessage)
                                    .distinct()
                                    .collect(Collectors.joining("; "));
               String errorMsg = violations.contains("posterior a la fecha/hora de inicio")
@@ -245,7 +268,7 @@ public class TurnoListView extends VerticalLayout {
         if (turnoAEliminar != null && turnoAEliminar.getIdTurno() != null) {
               try {
                 turnoService.deleteById(turnoAEliminar.getIdTurno());
-                updateList(); // Refresca la lista
+                updateList();
                 closeEditor();
                 Notification.show("Turno eliminado.", 2000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_CONTRAST);

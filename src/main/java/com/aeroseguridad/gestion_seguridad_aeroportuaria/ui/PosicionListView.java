@@ -10,14 +10,17 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
-import com.vaadin.flow.component.textfield.TextField; // Añadir si usas filtro
-import com.vaadin.flow.data.value.ValueChangeMode; // Añadir si usas filtro
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.dao.DataIntegrityViolationException; // Para catch
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import jakarta.persistence.EntityNotFoundException;
 
-import java.util.Collections; // Para lista vacía
+import java.util.Collections;
 
 @Route(value = "posiciones", layout = MainLayout.class)
 @PageTitle("Posiciones | Gestión Seguridad")
@@ -26,89 +29,111 @@ public class PosicionListView extends VerticalLayout {
 
     private final PosicionSeguridadService posicionService;
 
-    Grid<PosicionSeguridad> grid = new Grid<>(PosicionSeguridad.class, false);
-    // TextField filterText = new TextField(); // Filtro opcional
-    Button addPosicionButton = new Button("Nueva Posición", VaadinIcon.PLUS.create());
-    PosicionForm form;
+    private Grid<PosicionSeguridad> grid;
+    private TextField filterText;
+    private Button addPosicionButton;
+    private PosicionForm form;
+    private HorizontalLayout toolbar;
+    private SplitLayout splitLayout;
 
+
+    @Autowired
     public PosicionListView(PosicionSeguridadService posicionService) {
         this.posicionService = posicionService;
         addClassName("posicion-list-view");
         setSizeFull();
-
-        configureForm(); // Formulario sin dependencias externas por ahora
-        configureGrid();
-        configureToolbar();
-
-        SplitLayout content = new SplitLayout(grid, form);
-        content.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-        content.setSplitterPosition(65); // Ajusta según necesites
-        content.setSizeFull();
-
-        add(configureToolbar(), content);
-        updateList();
-        closeEditor();
     }
 
-    private HorizontalLayout configureToolbar() {
-        // filterText.setPlaceholder("Buscar por nombre...");
-        // filterText.setClearButtonVisible(true);
-        // filterText.setValueChangeMode(ValueChangeMode.LAZY);
-        // filterText.addValueChangeListener(e -> updateList());
+    @PostConstruct
+    private void initLayout() {
+        try {
+            createGrid();
+            createForm(); // Importante que use el PosicionForm corregido
+            createToolbar();
 
+            if (this.form == null) {
+                throw new IllegalStateException("PosicionForm no pudo ser instanciado.");
+            }
+
+            splitLayout = new SplitLayout(grid, form);
+            splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
+            splitLayout.setSplitterPosition(65);
+            splitLayout.setSizeFull();
+
+            add(toolbar, splitLayout);
+            updateList();
+            closeEditor();
+
+        } catch (Exception e) {
+            System.err.println("Error inicializando PosicionListView: " + e.getMessage());
+            e.printStackTrace();
+            Notification.show("Error al cargar la vista de Posiciones.",0 , Notification.Position.MIDDLE);
+        }
+    }
+
+
+    private void createToolbar() {
+        filterText = new TextField();
+        filterText.setPlaceholder("Buscar por nombre...");
+        filterText.setClearButtonVisible(true);
+        filterText.setValueChangeMode(ValueChangeMode.LAZY);
+        filterText.addValueChangeListener(e -> updateList());
+
+        addPosicionButton = new Button("Nueva Posición", VaadinIcon.PLUS.create());
         addPosicionButton.addClickListener(click -> addPosicion());
 
-        // HorizontalLayout toolbar = new HorizontalLayout(filterText, addPosicionButton);
-        HorizontalLayout toolbar = new HorizontalLayout(addPosicionButton); // Toolbar sin filtro por ahora
+        toolbar = new HorizontalLayout(filterText, addPosicionButton);
         toolbar.addClassName("toolbar");
-        return toolbar;
+        toolbar.setWidthFull();
+        toolbar.setFlexGrow(1, filterText);
     }
 
-     private void configureGrid() {
+     private void createGrid() {
+        grid = new Grid<>(PosicionSeguridad.class, false);
         grid.addClassName("posicion-grid");
         grid.setSizeFull();
 
-        grid.addColumn(PosicionSeguridad::getNombrePosicion).setHeader("Nombre Posición").setSortable(true);
+        grid.addColumn(PosicionSeguridad::getNombrePosicion).setHeader("Nombre Posición").setSortable(true).setFrozen(true);
         grid.addColumn(PosicionSeguridad::getDescripcion).setHeader("Descripción");
         grid.addColumn(PosicionSeguridad::getGeneroRequerido).setHeader("Género Req.").setSortable(true);
         grid.addColumn(pos -> pos.isRequiereEntrenamientoEspecial() ? "Sí" : "No").setHeader("Entren. Esp.").setSortable(true);
+        // No mostramos 'activo' en el grid, ya que solo mostraremos activas.
 
-
-        grid.getColumns().forEach(col -> col.setAutoWidth(true));
+        grid.getColumns().forEach(col -> col.setAutoWidth(true).setResizable(true));
         grid.asSingleSelect().addValueChangeListener(event -> editPosicion(event.getValue()));
     }
 
-    private void configureForm() {
+    private void createForm() {
         try {
-             form = new PosicionForm(); // No necesita lista de dependencias
-             form.setSizeFull();
+             form = new PosicionForm(); // Usa el PosicionForm corregido con el campo 'activo'
+             form.setWidth("400px");
              form.addListener(PosicionForm.SaveEvent.class, this::savePosicion);
-             form.addListener(PosicionForm.DeleteEvent.class, this::deletePosicion);
+             form.addListener(PosicionForm.DeleteEvent.class, this::deactivatePosicion); // Llamar a desactivar
              form.addListener(PosicionForm.CloseEvent.class, e -> closeEditor());
         } catch (Exception e) {
-             Notification.show("Error crítico al configurar formulario Posición: " + e.getMessage(), 0, Notification.Position.MIDDLE)
-                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
              form = null;
+             System.err.println("Error creando PosicionForm: " + e.getMessage());
+             e.printStackTrace();
          }
     }
 
     private void updateList() {
          if (grid != null) {
              try {
-                // String filter = filterText.getValue(); // Si usaras filtro
-                // grid.setItems(posicionService.findByNombre(filter));
-                 grid.setItems(posicionService.findAll()); // Muestra todas por ahora
+                // Llama al servicio para buscar posiciones ACTIVAS por el término del filtro
+                grid.setItems(posicionService.findActiveByNombre(filterText.getValue()));
              } catch (Exception e) {
                 Notification.show("Error al cargar posiciones: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
+                grid.setItems(Collections.emptyList());
+             }
          }
     }
 
      private void addPosicion() {
         if (form == null) return;
         grid.asSingleSelect().clear();
-        editPosicion(new PosicionSeguridad());
+        editPosicion(new PosicionSeguridad()); // 'activo' será true por defecto en la entidad
     }
 
     private void editPosicion(PosicionSeguridad posicion) {
@@ -116,9 +141,10 @@ public class PosicionListView extends VerticalLayout {
         if (posicion == null) {
             closeEditor();
         } else {
+            // Si es una posición inactiva seleccionada (aunque no deberían mostrarse),
+            // se cargará con activo=false en el form.
             form.setPosicion(posicion);
             form.setVisible(true);
-            addClassName("editing");
         }
     }
 
@@ -129,48 +155,64 @@ public class PosicionListView extends VerticalLayout {
             closeEditor();
             Notification.show("Posición guardada.", 2000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        } catch (DataIntegrityViolationException e) { // Error de unicidad (nombre) o FK
-             Notification.show("Error: No se pudo guardar. El nombre de la posición ya existe o hay datos relacionados.", 5000, Notification.Position.BOTTOM_CENTER)
-                  .addThemeVariants(NotificationVariant.LUMO_ERROR);
-             if (form != null && form.nombrePosicion != null) {
-                  form.nombrePosicion.setInvalid(true);
-                  form.nombrePosicion.setErrorMessage("Este nombre ya existe");
+        } catch (DataIntegrityViolationException e) {
+             String msg = "Error: No se pudo guardar. ";
+             if (e.getMostSpecificCause().getMessage().toLowerCase().contains("posiciones_seguridad_nombre_posicion_key") ||
+                 e.getMostSpecificCause().getMessage().toLowerCase().contains("uk_nombre_posicion")) {
+                 msg += "El nombre de la posición ya existe.";
+                 if (form != null && form.nombrePosicion != null) {
+                     form.nombrePosicion.setInvalid(true);
+                     form.nombrePosicion.setErrorMessage("Este nombre ya existe");
+                 }
+             } else {
+                 msg += "Violación de integridad de datos.";
              }
+             Notification.show(msg, 5000, Notification.Position.BOTTOM_CENTER)
+                  .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
              Notification.show("Error inesperado al guardar posición: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
+             e.printStackTrace();
         }
     }
 
-
-    private void deletePosicion(PosicionForm.DeleteEvent event) {
+    // --- MÉTODO para DESACTIVAR Posicion ---
+    private void deactivatePosicion(PosicionForm.DeleteEvent event) {
         if (form == null) return;
-        if (event.getPosicion() != null && event.getPosicion().getIdPosicion() != null) {
-              try {
-                // Advertencia: Borrar una posición puede fallar si agentes tienen esa habilidad asignada (FK)
-                posicionService.deleteById(event.getPosicion().getIdPosicion());
-                updateList();
-                closeEditor();
-                Notification.show("Posición eliminada.", 2000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-             } catch (DataIntegrityViolationException e) { // Error si está en uso
-                 Notification.show("Error: No se puede eliminar la posición porque está asignada a uno o más agentes.", 5000, Notification.Position.BOTTOM_CENTER)
-                  .addThemeVariants(NotificationVariant.LUMO_ERROR);
-             } catch (Exception e) {
-                Notification.show("Error al eliminar posición: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        } else {
-             Notification.show("No se puede eliminar una posición no guardada.", 3000, Notification.Position.BOTTOM_CENTER)
+        PosicionSeguridad posicionADesactivar = event.getPosicion();
+
+        if (posicionADesactivar == null || posicionADesactivar.getIdPosicion() == null) {
+             Notification.show("Seleccione una posición guardada para desactivar.", 3000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_WARNING);
+             return;
+        }
+        try {
+            posicionService.deactivateById(posicionADesactivar.getIdPosicion());
+            updateList();
+            closeEditor();
+            Notification.show("Posición desactivada.", 2000, Notification.Position.BOTTOM_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+        } catch (EntityNotFoundException enfe) {
+               Notification.show("Error: La posición que intenta desactivar no fue encontrada.", 4000, Notification.Position.BOTTOM_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        } catch (Exception e) {
+            // DataIntegrityViolationException podría ocurrir aquí si hay FKs que impiden
+            // incluso una actualización de 'activo' (aunque es menos común para un soft delete).
+            // Es más probable con borrado físico.
+            Notification.show("Error al desactivar posición: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+             e.printStackTrace();
         }
     }
+    // --- FIN MÉTODO ---
 
     private void closeEditor() {
          if (form != null) {
             form.setPosicion(null);
             form.setVisible(false);
-            removeClassName("editing");
+         }
+         if (grid != null) {
+            grid.asSingleSelect().clear();
          }
     }
 }
