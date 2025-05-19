@@ -1,13 +1,259 @@
-.vuelo-container {
-    gap: var(--lumo-space-m); /* Espacio entre tarjetas */
+/* styles.css */
+
+/* --- Paleta de Colores AeroBlue (Consistente) --- */
+:root {
+    --aeroblue-bg: #F4F6F9; /* Fondo principal más suave */
+    --aeroblue-card-bg: #FFFFFF;
+    --aeroblue-text: #343A40; /* Texto principal un poco más suave */
+    --aeroblue-text-secondary: #6C757D;
+    --aeroblue-primary: #007BFF; /* Azul vibrante */
+    --aeroblue-primary-darker: #0056b3;
+    --aeroblue-success: #28A745;
+    --aeroblue-warning: #FFC107;
+    --aeroblue-danger: #DC3545;
+    --aeroblue-info: #17A2B8; /* Turquesa/Info */
+    --aeroblue-purple: #6F42C1; /* Morado para Llegada */
+    --aeroblue-cyan: #0DCAF0;   /* Cian brillante para Salida */
+    --aeroblue-border: #DEE2E6;
+    --aeroblue-shadow: 0 4px 12px rgba(0, 75, 159, 0.08); /* Sombra más sutil y azulada */
+
+    /* Ajustes Lumo */
+    --lumo-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --lumo-border-radius-m: 0.5rem; /* Bordes más redondeados */
+    --lumo-base-color: var(--aeroblue-bg);
+    --lumo-body-text-color: var(--aeroblue-text);
+    --lumo-primary-color: var(--aeroblue-primary);
+    --lumo-primary-text-color: var(--aeroblue-primary);
+    --lumo-error-color: var(--aeroblue-danger);
+    --lumo-success-color: var(--aeroblue-success);
+
+    --lumo-space-xl: 2rem;
+    --lumo-space-l: 1.5rem;
+    --lumo-space-m: 1rem;
+    --lumo-space-s: 0.75rem;
+    --lumo-space-xs: 0.5rem;
 }
+
+body {
+    background-color: var(--aeroblue-bg);
+    color: var(--aeroblue-text);
+}
+
+/* --- VueloListView General --- */
+.vuelo-list-view {
+    padding: var(--lumo-space-m);
+    box-sizing: border-box;
+}
+
+/* --- Toolbar Mejorada --- */
+.vuelo-toolbar {
+    background-color: var(--aeroblue-card-bg);
+    padding: var(--lumo-space-s) var(--lumo-space-m);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--aeroblue-shadow);
+    margin-bottom: var(--lumo-space-l);
+    gap: var(--lumo-space-m);
+}
+.vuelo-toolbar > vaadin-text-field,
+.vuelo-toolbar > vaadin-date-picker {
+    flex-grow: 1;
+}
+.vuelo-toolbar vaadin-date-picker::part(label){
+    font-weight: 500;
+}
+
+
+/* --- Contenedor de Tarjetas --- */
+.vuelo-card-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--lumo-space-l); /* Espacio generoso entre tarjetas */
+    align-items: stretch; /* Las tarjetas se estiran a la misma altura si están en la misma fila */
+}
+
+/* --- Estilos Detallados para VueloCard --- */
 .vuelo-card {
-    /* Lumo ya da buenos defaults, pero puedes añadir más aquí */
-    /* background-color: var(--lumo-base-color); */
-    /* box-shadow: var(--lumo-box-shadow-s); */
-    transition: box-shadow .2s ease-in-out, transform .2s ease-in-out;
+    background-color: var(--aeroblue-card-bg);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--aeroblue-shadow);
+    display: flex; /* Usar flex para la tarjeta en sí */
+    flex-direction: column;
+    min-width: 320px; /* Ancho mínimo */
+    flex-basis: calc(33.333% - var(--lumo-space-l) * 2/3); /* Para 3 tarjetas por fila, ajustando por el gap */
+    flex-grow: 1;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+    cursor: pointer;
+    overflow: hidden; /* Para que los bordes redondeados funcionen bien con elementos internos */
 }
-.vuelo-card-hoverable:hover {
-    box-shadow: var(--lumo-box-shadow-l);
-    transform: translateY(-3px);
+.vuelo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 75, 159, 0.12);
+}
+.vuelo-card-content {
+    padding: var(--lumo-space-m);
+    display: flex;
+    flex-direction: column;
+    gap: var(--lumo-space-s); /* Espacio entre secciones dentro de la tarjeta */
+    flex-grow: 1; /* El contenido se expande */
+}
+
+.card-section {
+    display: flex;
+    align-items: center;
+    gap: var(--lumo-space-xs);
+}
+
+/* Header Section (Número Vuelo, Aerolínea) */
+.header-section {
+    justify-content: space-between;
+    border-bottom: 1px solid var(--aeroblue-border);
+    padding-bottom: var(--lumo-space-s);
+    margin-bottom: var(--lumo-space-xs);
+}
+.header-section .numero-vuelo {
+    font-size: var(--lumo-font-size-xl);
+    font-weight: 700;
+    color: var(--aeroblue-primary);
+}
+.header-section .aerolinea {
+    font-size: var(--lumo-font-size-s);
+    color: var(--aeroblue-text-secondary);
+    text-align: right;
+}
+
+/* Ruta Section (Icono, Origen -> Destino) */
+.ruta-section {
+    align-items: center;
+    gap: var(--lumo-space-s);
+}
+.ruta-section .tipo-operacion-icono {
+    font-size: 1.8em;
+    color: var(--aeroblue-primary);
+}
+.ruta-section .origen,
+.ruta-section .destino {
+    font-size: var(--lumo-font-size-l);
+    font-weight: 500;
+}
+.ruta-section .flecha-ruta {
+    color: var(--aeroblue-text-secondary);
+}
+
+/* Fechas Section */
+.fechas-section {
+    flex-direction: column; /* Apilar elementos de fecha */
+    align-items: flex-start;
+    gap: var(--lumo-space-xs);
+    font-size: var(--lumo-font-size-s);
+}
+.datetime-element {
+    display: flex;
+    align-items: baseline; /* Alinear etiqueta y valor */
+    width: 100%;
+}
+.datetime-label {
+    color: var(--aeroblue-text-secondary);
+    font-weight: 500;
+    min-width: 60px; /* Para alinear */
+    margin-right: var(--lumo-space-xs);
+}
+.datetime-value {
+    font-weight: 600;
+    color: var(--aeroblue-text);
+    display: flex;
+    gap: var(--lumo-space-xs);
+}
+.datetime-time {
+    /* Estilo específico si es necesario */
+}
+.datetime-date {
+    color: var(--aeroblue-text-secondary);
+    font-size: 0.9em;
+}
+.datetime-na {
+    font-style: italic;
+    color: var(--aeroblue-text-secondary);
+}
+
+/* Footer Section (Badges, Necesidades) */
+.footer-section {
+    margin-top: auto; /* Empuja el footer hacia abajo */
+    padding-top: var(--lumo-space-s);
+    border-top: 1px solid var(--aeroblue-border);
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--lumo-space-s);
+}
+
+/* Badges (Estado y Tipo) */
+.status-badge, .type-badge {
+    padding: 0.3em 0.8em;
+    border-radius: var(--lumo-border-radius-m);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+}
+.status-badge-programado    { background-color: var(--aeroblue-primary); }
+.status-badge-retrasado     { background-color: var(--aeroblue-warning); color: var(--aeroblue-text); }
+.status-badge-cancelado     { background-color: var(--aeroblue-danger); }
+.status-badge-en_ruta       { background-color: var(--aeroblue-success); }
+.status-badge-aterrizado    { background-color: var(--aeroblue-info); color: var(--aeroblue-text); }
+.status-badge-desconocido, .status-badge-default   { background-color: var(--aeroblue-text-secondary); }
+
+.type-badge-llegada { background-color: var(--aeroblue-purple); }
+.type-badge-salida  { background-color: var(--aeroblue-cyan); color: var(--aeroblue-text); }
+.type-badge-default { background-color: var(--lumo-contrast-30pct); color: var(--lumo-body-text-color); }
+
+
+.necesidades-info {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--lumo-space-xs);
+    color: var(--aeroblue-text-secondary);
+    font-size: var(--lumo-font-size-s);
+}
+.necesidades-info vaadin-icon {
+    color: var(--aeroblue-primary);
+    font-size: 1.1em;
+}
+
+/* --- Estilos para el Grid de Necesidades (en el panel derecho) --- */
+.necesidad-grid { /* Asumiendo que esta clase está en VueloListView para el grid de necesidades */
+    border: 1px solid var(--aeroblue-border);
+    border-radius: var(--lumo-border-radius-m);
+    background-color: var(--aeroblue-card-bg);
+    box-shadow: var(--aeroblue-shadow);
+}
+.necesidad-grid::part(header-cell) {
+    background-color: var(--aeroblue-bg); /* Un poco más claro que el fondo de tarjeta */
+    color: var(--aeroblue-primary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+.necesidad-grid::part(cell) {
+    font-size: 0.9rem;
+}
+
+/* Panel derecho (donde está el formulario y el grid de necesidades) */
+.right-panel {
+    background-color: var(--aeroblue-bg);
+    padding: var(--lumo-space-l);
+    box-shadow: -5px 0px 15px -5px rgba(0,0,0,0.05); /* Sombra para el panel */
+    overflow-y: auto;
+}
+.vuelo-form-panel {
+    background-color: var(--aeroblue-card-bg);
+    padding: var(--lumo-space-l);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--aeroblue-shadow);
+    margin-bottom: var(--lumo-space-l);
+}
+.necesidades-section .necesidades-titulo {
+    color: var(--aeroblue-primary);
+    margin-bottom: var(--lumo-space-m);
 }

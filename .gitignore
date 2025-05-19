@@ -76,3 +76,4 @@ logs/
 # Environment variables (NEVER commit sensitive info)
 .env
 *.env
+node_modules

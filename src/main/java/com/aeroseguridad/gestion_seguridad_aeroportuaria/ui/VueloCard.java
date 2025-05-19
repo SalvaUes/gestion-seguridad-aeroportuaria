@@ -4,151 +4,147 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoVuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.TipoOperacionVuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.NecesidadVueloService; // Para cargar necesidades
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.NecesidadVueloService;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.theme.lumo.LumoUtility;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class VueloCard extends VerticalLayout {
 
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private Vuelo vuelo;
+    private NecesidadVueloService necesidadService;
+    private VueloListView vueloListView;
 
-    public VueloCard(Vuelo vuelo, NecesidadVueloService necesidadVueloService, VueloListView listView) {
+    private static final DateTimeFormatter CARD_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter CARD_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yy");
+
+    public VueloCard(Vuelo vuelo, NecesidadVueloService necesidadService, VueloListView vueloListView) {
+        this.vuelo = vuelo;
+        this.necesidadService = necesidadService;
+        this.vueloListView = vueloListView;
+
         addClassName("vuelo-card");
-        getStyle().set("border", "1px solid var(--lumo-contrast-10pct)");
-        getStyle().set("border-radius", "var(--lumo-border-radius-l)");
-        getStyle().set("padding", "var(--lumo-space-m)");
-        getStyle().set("margin", "var(--lumo-space-s)");
-        setWidth("350px"); // Ancho de la tarjeta
+        setSpacing(false);
+        setPadding(false); // Controlaremos el padding con CSS
 
-        // Indicador de Estado (Barra de Color)
-        Div estadoIndicator = new Div();
-        estadoIndicator.setHeight("100%"); // Ocupa toda la altura de la tarjeta
-        estadoIndicator.setWidth("8px");
-        estadoIndicator.getStyle().set("border-top-left-radius", "var(--lumo-border-radius-l)");
-        estadoIndicator.getStyle().set("border-bottom-left-radius", "var(--lumo-border-radius-l)");
-        estadoIndicator.getStyle().set("margin-right", "var(--lumo-space-m)");
-        setEstadoIndicatorColor(estadoIndicator, vuelo.getEstado());
+        // Contenedor Principal de la Información
+        Div cardContent = new Div();
+        cardContent.addClassName("vuelo-card-content");
 
-        // Contenido Principal de la Tarjeta
-        VerticalLayout contentLayout = new VerticalLayout();
-        contentLayout.setPadding(false);
-        contentLayout.setSpacing(false);
-        contentLayout.getThemeList().add("spacing-s"); // Espacio entre elementos internos
+        // Sección 1: Encabezado (Número de Vuelo y Aerolínea)
+        Div headerSection = new Div();
+        headerSection.addClassNames("card-section", "header-section");
+        Span numeroVuelo = new Span(vuelo.getNumeroVuelo() != null ? vuelo.getNumeroVuelo() : "N/V");
+        numeroVuelo.addClassName("numero-vuelo");
+        Span aerolinea = new Span(vuelo.getAerolinea() != null && vuelo.getAerolinea().getNombre() != null ? vuelo.getAerolinea().getNombre() : "Aerolínea N/A");
+        aerolinea.addClassName("aerolinea");
+        headerSection.add(numeroVuelo, aerolinea);
 
-        // Header: Número de Vuelo y Aerolínea
-        HorizontalLayout header = new HorizontalLayout();
-        header.setAlignItems(FlexComponent.Alignment.BASELINE);
-        H4 numeroVueloText = new H4(vuelo.getNumeroVuelo());
-        numeroVueloText.addClassNames(LumoUtility.Margin.NONE);
-        Span aerolineaText = new Span(vuelo.getAerolinea() != null ? vuelo.getAerolinea().getNombre() : "N/A");
-        aerolineaText.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
-        header.add(numeroVueloText, aerolineaText);
-        header.setFlexGrow(1, numeroVueloText); // Número de vuelo ocupa espacio
+        // Sección 2: Ruta (Origen -> Destino) y Tipo de Operación
+        Div rutaSection = new Div();
+        rutaSection.addClassNames("card-section", "ruta-section");
+        // Se ha corregido la constante, asumiendo que en lugar de LLEGADA se usa ARRIBO
+        Icon tipoIcono = vuelo.getTipoOperacion() == TipoOperacionVuelo.LLEGADA_SOLO ? VaadinIcon.FLIGHT_LANDING.create() : VaadinIcon.FLIGHT_TAKEOFF.create();
+        tipoIcono.addClassName("tipo-operacion-icono");
+        Span origen = new Span(vuelo.getOrigen() != null ? vuelo.getOrigen() : "---");
+        origen.addClassName("origen");
+        Icon flecha = VaadinIcon.ARROW_RIGHT.create();
+        flecha.addClassName("flecha-ruta");
+        Span destino = new Span(vuelo.getDestino() != null ? vuelo.getDestino() : "---");
+        destino.addClassName("destino");
+        rutaSection.add(tipoIcono, origen, flecha, destino);
 
-        // Ruta: Origen - Destino
-        HorizontalLayout rutaLayout = createInfoLineLayout(
-                VaadinIcon.ARROWS_LONG_H,
-                (vuelo.getOrigen() != null ? vuelo.getOrigen() : "N/A") + " → " + (vuelo.getDestino() != null ? vuelo.getDestino() : "N/A")
-        );
+        // Sección 3: Fechas y Horas
+        Div fechasSection = new Div();
+        fechasSection.addClassNames("card-section", "fechas-section");
+        fechasSection.add(createDateTimeElement("Salida:", vuelo.getFechaHoraSalida()));
+        fechasSection.add(createDateTimeElement("Llegada:", vuelo.getFechaHoraLlegada()));
 
-        // Horarios
-        HorizontalLayout salidaLayout = createInfoLineLayout(
-                VaadinIcon.FLIGHT_TAKEOFF,
-                "Salida: " + (vuelo.getFechaHoraSalida() != null ? vuelo.getFechaHoraSalida().format(DATE_FORMATTER) + " " + vuelo.getFechaHoraSalida().format(TIME_FORMATTER) : "N/A")
-        );
-        HorizontalLayout llegadaLayout = createInfoLineLayout(
-                VaadinIcon.FLIGHT_LANDING,
-                "Llegada: " + (vuelo.getFechaHoraLlegada() != null ? vuelo.getFechaHoraLlegada().format(DATE_FORMATTER) + " " + vuelo.getFechaHoraLlegada().format(TIME_FORMATTER) : "N/A")
-        );
+        // Sección 4: Estado y Necesidades
+        Div footerSection = new Div();
+        footerSection.addClassNames("card-section", "footer-section");
+        Span estadoBadge = createEstadoBadge(vuelo.getEstado());
 
-        // Tipo de Operación y Estado
-        HorizontalLayout tipoOpEstadoLayout = new HorizontalLayout();
-        tipoOpEstadoLayout.add(
-                createInfoLineLayout(VaadinIcon.COG_O, "Op: " + (vuelo.getTipoOperacion() != null ? vuelo.getTipoOperacion().toString() : "N/A")),
-                createInfoLineLayout(VaadinIcon.INFO_CIRCLE_O, "Est: " + (vuelo.getEstado() != null ? vuelo.getEstado().toString() : "N/A"))
-        );
-        tipoOpEstadoLayout.getStyle().set("gap", "var(--lumo-space-m)");
-
-
-        // Resumen de Necesidades
-        Div necesidadesTitle = new Div(new Span("Necesidades de Seguridad:"));
-        necesidadesTitle.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.TERTIARY, LumoUtility.Margin.Top.SMALL);
-        VerticalLayout necesidadesLayout = new VerticalLayout();
-        necesidadesLayout.setPadding(false);
-        necesidadesLayout.setSpacing(false);
-        necesidadesLayout.getThemeList().add("spacing-xs");
-
-        if (vuelo.getIdVuelo() != null) {
-            List<NecesidadVuelo> necesidades = necesidadVueloService.findByVueloId(vuelo.getIdVuelo());
-            if (necesidades == null || necesidades.isEmpty()) {
-                necesidadesLayout.add(new Span("Sin definir"));
-            } else {
-                necesidades.forEach(nec -> {
-                    String detalleNec = (nec.getPosicion() != null ? nec.getPosicion().getNombrePosicion() : "N/P") +
-                                        ": " + nec.getCantidadAgentes() + " agente(s)";
-                    necesidadesLayout.add(createInfoLineLayout(VaadinIcon.USER_CHECK, detalleNec));
-                });
+        long countNecesidades = 0;
+        if (vuelo.getIdVuelo() != null && necesidadService != null) {
+            try {
+                List<NecesidadVuelo> necesidades = necesidadService.findByVueloId(vuelo.getIdVuelo());
+                countNecesidades = necesidades.size();
+            } catch (Exception e) {
+                // Se controla el error silenciosamente, ya se loguea en VueloListView
             }
-        } else {
-            necesidadesLayout.add(new Span("Guardar vuelo para ver necesidades."));
         }
+        Span necesidadesInfo = new Span();
+        necesidadesInfo.add(VaadinIcon.SHIELD.create(), new Span(String.valueOf(countNecesidades)));
+        necesidadesInfo.addClassName("necesidades-info");
 
+        Span tipoBadge = createTipoBadge(vuelo.getTipoOperacion());
 
-        contentLayout.add(header, rutaLayout, salidaLayout, llegadaLayout, tipoOpEstadoLayout, necesidadesTitle, necesidadesLayout);
+        footerSection.add(estadoBadge, tipoBadge, necesidadesInfo);
 
-        // Layout final de la tarjeta con indicador y contenido
-        HorizontalLayout cardInnerLayout = new HorizontalLayout(estadoIndicator, contentLayout);
-        cardInnerLayout.setPadding(false); // El padding ya está en la tarjeta principal
-        cardInnerLayout.setWidthFull();
-        add(cardInnerLayout);
+        cardContent.add(headerSection, rutaSection, fechasSection, footerSection);
+        add(cardContent);
 
-        // Hacer toda la tarjeta clickeable para editar
+        // Hacer la tarjeta clickeable para editar
         addClickListener(event -> {
-            if (listView != null) {
-                listView.editVuelo(vuelo); // Llama al método en VueloListView
+            if (vueloListView != null) {
+                vueloListView.editVuelo(this.vuelo);
             }
         });
-        getStyle().set("cursor", "pointer");
-        addClassName("vuelo-card-hoverable"); // Para estilos hover opcionales
     }
 
-    private void setEstadoIndicatorColor(Div indicator, EstadoVuelo estado) {
-        String color = "var(--lumo-contrast-20pct)"; // Gris por defecto
-        if (estado != null) {
-            switch (estado) {
-                case PROGRAMADO: color = "var(--lumo-primary-color)"; break; // Azul
-                case EN_VUELO: color = "var(--lumo-success-color)"; break; // Verde
-                case RETRASADO: color = "var(--lumo-warning-text-color)"; break; // Naranja/Amarillo (usar text color para más visibilidad)
-                case CANCELADO: color = "var(--lumo-error-color)"; break; // Rojo
-                case COMPLETADO: color = "var(--lumo-success-color-50pct)"; break; // Verde más claro
-            }
+    private Div createDateTimeElement(String labelText, LocalDateTime dateTime) {
+        Div dateTimeElement = new Div();
+        dateTimeElement.addClassName("datetime-element");
+
+        Span label = new Span(labelText);
+        label.addClassName("datetime-label");
+
+        Span value = new Span();
+        if (dateTime != null) {
+            Span timeSpan = new Span(dateTime.format(CARD_TIME_FORMATTER));
+            timeSpan.addClassName("datetime-time");
+            Span dateSpan = new Span(dateTime.format(CARD_DATE_FORMATTER));
+            dateSpan.addClassName("datetime-date");
+            value.add(timeSpan, dateSpan);
+        } else {
+            value.setText("N/A");
+            value.addClassName("datetime-na");
         }
-        indicator.getStyle().set("background-color", color);
+        value.addClassName("datetime-value");
+        dateTimeElement.add(label, value);
+        return dateTimeElement;
     }
 
-    private HorizontalLayout createInfoLineLayout(VaadinIcon iconName, String text) {
-        Icon icon = iconName.create();
-        icon.setSize("1em");
-        icon.getStyle().set("margin-right", "0.5em");
-        icon.setColor("var(--lumo-contrast-70pct)");
-
-        Span span = new Span(text);
-        span.addClassNames(LumoUtility.FontSize.SMALL);
-
-        HorizontalLayout line = new HorizontalLayout(icon, span);
-        line.setAlignItems(FlexComponent.Alignment.CENTER);
-        return line;
+    private Span createEstadoBadge(EstadoVuelo estado) {
+        String textoEstado = "Desconocido";
+        String claseCssEstado = "default";
+        if (estado != null) {
+            textoEstado = estado.toString().replace("_", " ");
+            claseCssEstado = estado.name().toLowerCase();
+        }
+        Span badge = new Span(textoEstado);
+        badge.addClassName("status-badge");
+        badge.addClassName("status-badge-" + claseCssEstado);
+        return badge;
+    }
+    
+    private Span createTipoBadge(TipoOperacionVuelo tipo) {
+        String textoTipo = "N/A";
+        String claseCssTipo = "default";
+        if (tipo != null) {
+            textoTipo = tipo.toString();
+            claseCssTipo = tipo.name().toLowerCase();
+        }
+        Span badge = new Span(textoTipo);
+        badge.addClassName("type-badge");
+        badge.addClassName("type-badge-" + claseCssTipo);
+        return badge;
     }
 }

@@ -54,7 +54,7 @@ public class Vuelo {
     @NotNull(message = "Debe especificar el tipo de operación.")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private TipoOperacionVuelo tipoOperacion; // LLEGADA, SALIDA, TRANSITO, RON
+    private TipoOperacionVuelo tipoOperacion; //esto hace referencia a la clase  // LLEGADA, SALIDA, TRANSITO, RON
 
     @Column // Puede ser nulo inicialmente, se actualiza al finalizar operación
     private LocalDateTime finOperacionSeguridad; // Hora real/estimada fin cobertura seguridad completa
