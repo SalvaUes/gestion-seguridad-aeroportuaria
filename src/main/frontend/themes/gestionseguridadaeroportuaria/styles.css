@@ -1,0 +1,13 @@
+.vuelo-container {
+    gap: var(--lumo-space-m); /* Espacio entre tarjetas */
+}
+.vuelo-card {
+    /* Lumo ya da buenos defaults, pero puedes añadir más aquí */
+    /* background-color: var(--lumo-base-color); */
+    /* box-shadow: var(--lumo-box-shadow-s); */
+    transition: box-shadow .2s ease-in-out, transform .2s ease-in-out;
+}
+.vuelo-card-hoverable:hover {
+    box-shadow: var(--lumo-box-shadow-l);
+    transform: translateY(-3px);
+}
