@@ -7,10 +7,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional; // Importar Optional
+import java.util.Optional;
 
 @Repository
 public interface AgenteRepository extends JpaRepository<Agente, Long> {
+
+    // --- NUEVO: Método para que Spring Security busque usuarios por email ---
+    // Este es el método que usará nuestro UserDetailsServiceImpl.
+    Optional<Agente> findByEmail(String email);
+    // --- FIN DEL NUEVO MÉTODO ---
 
     // Busca agentes ACTIVOS por nombre o apellido (ignorando may/min) con JOIN FETCH
     @Query("SELECT a FROM Agente a LEFT JOIN FETCH a.posicionesHabilitadas WHERE a.activo = true AND (lower(a.nombre) LIKE lower(concat('%', :searchTerm, '%')) OR lower(a.apellido) LIKE lower(concat('%', :searchTerm, '%')))")

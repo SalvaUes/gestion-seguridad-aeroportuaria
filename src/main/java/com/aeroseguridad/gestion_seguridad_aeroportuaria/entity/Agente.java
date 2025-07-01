@@ -27,17 +27,14 @@ public class Agente {
     private Long idAgente;
 
     @NotBlank(message = "El nombre no puede estar vacío")
-    @Size(max = 50, message = "El nombre no puede exceder los 50 caracteres")
     @Column(nullable = false, length = 50)
     private String nombre;
 
     @NotBlank(message = "El apellido no puede estar vacío")
-    @Size(max = 50, message = "El apellido no puede exceder los 50 caracteres")
     @Column(nullable = false, length = 50)
     private String apellido;
 
     @NotBlank(message = "El número de carnet no puede estar vacío")
-    @Size(max = 20, message = "El carnet no puede exceder los 20 caracteres")
     @Column(nullable = false, unique = true, length = 20)
     private String numeroCarnet;
 
@@ -46,7 +43,6 @@ public class Agente {
     @Column(nullable = false, length = 20)
     private Genero genero;
 
-    @Size(max = 255, message = "La dirección no puede exceder los 255 caracteres")
     @Column(length = 255)
     private String direccion;
 
@@ -54,39 +50,30 @@ public class Agente {
     @Column
     private LocalDate fechaNacimiento;
 
-    @Size(max = 20, message = "El teléfono no puede exceder los 20 caracteres")
     @Column(length = 20)
     private String telefono;
 
     @Email(message = "Debe introducir un formato de email válido")
-    @Size(max = 100, message = "El email no puede exceder los 100 caracteres")
-    @Column(length = 100)
+    @Column(length = 100, unique = true)
     private String email;
 
     @Column(length = 255)
     private String rutaFotografia;
 
-    @NotNull // Para el wrapper Boolean
+    @NotNull
     @Column(nullable = false)
     private Boolean activo = true;
 
-    @Column(nullable = false)
-    private boolean esBilingue = false;
+    // Los campos 'password' y 'rol' han sido eliminados.
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "agente_habilidades",
-            joinColumns = @JoinColumn(name = "id_agente"),
-            inverseJoinColumns = @JoinColumn(name = "id_posicion")
-    )
+    @JoinTable(name = "agente_habilidades", joinColumns = @JoinColumn(name = "id_agente"), inverseJoinColumns = @JoinColumn(name = "id_posicion"))
     private Set<PosicionSeguridad> posicionesHabilitadas = new HashSet<>();
 
     @OneToMany(mappedBy = "agente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<PermisoAgenteAerolinea> permisosAerolinea = new HashSet<>();
 
-    // --- MÉTODO AÑADIDO para obtener el nombre completo ---
     public String getNombreCompleto() {
         return (nombre != null ? nombre : "") + " " + (apellido != null ? apellido : "");
     }
-    // --- FIN MÉTODO AÑADIDO ---
 }

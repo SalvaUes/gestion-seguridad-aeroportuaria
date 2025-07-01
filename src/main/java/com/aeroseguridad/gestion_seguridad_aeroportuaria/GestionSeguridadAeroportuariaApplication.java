@@ -1,13 +1,19 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria;
 
-import com.vaadin.flow.component.page.AppShellConfigurator; // <<<--- AÑADE ESTA IMPORTACIÓN
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import com.vaadin.flow.theme.Theme;
 
+/**
+ * El punto de entrada de la aplicación Spring Boot.
+ *
+ * Usa la anotación @SpringBootApplication para habilitar la autoconfiguración,
+ * el escaneo de componentes y la configuración de beans de Spring.
+ * Esta clase NO debe configurar el AppShell, ya que esa responsabilidad
+ * recae en la clase AppShell.java.
+ *
+ */
 @SpringBootApplication
-@Theme(value = "gestionseguridadaeroportuaria") // Esta anotación ahora está en una clase AppShellConfigurator
-public class GestionSeguridadAeroportuariaApplication implements AppShellConfigurator { // <<<--- IMPLEMENTA AppShellConfigurator
+public class GestionSeguridadAeroportuariaApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(GestionSeguridadAeroportuariaApplication.class, args);

@@ -32,7 +32,7 @@ public class PosicionSeguridad {
     @NotNull // Los enums se validan con NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Genero generoRequerido = Genero.CUALQUIERA;
+    private Genero generoRequerido = Genero.OTRO; // Por defecto, OTRO
 
     @Column(nullable = false) // boolean primitivo es not null por defecto
     private boolean requiereEntrenamientoEspecial = false;

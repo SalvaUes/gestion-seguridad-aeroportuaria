@@ -126,7 +126,7 @@ public class PosicionForm extends FormLayout {
         if (beanPresent) {
             nombrePosicion.setValue(posicion.getNombrePosicion() != null ? posicion.getNombrePosicion() : "");
             descripcion.setValue(posicion.getDescripcion() != null ? posicion.getDescripcion() : "");
-            generoRequerido.setValue(posicion.getGeneroRequerido() != null ? posicion.getGeneroRequerido() : Genero.CUALQUIERA);
+            generoRequerido.setValue(posicion.getGeneroRequerido() != null ? posicion.getGeneroRequerido() : Genero.OTRO);
             requiereEntrenamientoEspecial.setValue(posicion.isRequiereEntrenamientoEspecial());
             activo.setValue(posicion.getActivo()); // Cargar estado 'activo'
 
