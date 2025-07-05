@@ -1,6 +1,9 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-import com.vaadin.flow.component.Component; // Asegúrate de importar Component
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.PermisoAgenteAerolineaListView;
+// --- 1. IMPORTACIÓN DE LA NUEVA VISTA ---
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.SupervisoresView;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
@@ -16,9 +19,6 @@ import com.vaadin.flow.router.HighlightConditions;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
-
-// Import para la vista de gestión de permisos agente-aerolínea
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.PermisoAgenteAerolineaListView;
 
 
 public class MainLayout extends AppLayout {
@@ -52,7 +52,6 @@ public class MainLayout extends AppLayout {
 
         HorizontalLayout itemLayout = new HorizontalLayout(icon, span);
         itemLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
-        // Opcional: itemLayout.getStyle().set("gap", "8px"); // Espacio entre icono y texto
 
         link.add(itemLayout);
         link.setRoute(viewClass);
@@ -65,32 +64,35 @@ public class MainLayout extends AppLayout {
         RouterLink aerolineasLink = createMenuLink(AerolineaListView.class, "Aerolíneas", VaadinIcon.AIRPLANE);
         RouterLink vuelosLink = createMenuLink(VueloListView.class, "Vuelos", VaadinIcon.FLIGHT_TAKEOFF);
         RouterLink agentesLink = createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS);
+        
+        // --- 2. CREACIÓN DEL NUEVO ENLACE A SUPERVISORES ---
+        RouterLink supervisoresLink = createMenuLink(SupervisoresView.class, "Supervisores", VaadinIcon.USER_CARD);
+
         RouterLink turnosLink = createMenuLink(TurnoListView.class, "Turnos", VaadinIcon.CLOCK);
         RouterLink permisosLink = createMenuLink(PermisoListView.class, "Permisos", VaadinIcon.CALENDAR_USER);
         RouterLink posicionesLink = createMenuLink(PosicionListView.class, "Posiciones", VaadinIcon.CHECK_SQUARE_O);
-
-        // Link para la nueva vista de gestión de Permisos Agente-Aerolínea
         RouterLink permisoAgenteAerolineaLink = createMenuLink(
-            PermisoAgenteAerolineaListView.class,
-            "Permisos Aerolíneas", // Texto descriptivo para el menú
-            VaadinIcon.CONNECT // O el ícono que prefieras (USER_CHECK, SHIELD)
+                PermisoAgenteAerolineaListView.class,
+                "Permisos Aerolíneas",
+                VaadinIcon.CONNECT
         );
 
-
+        // --- 3. ADICIÓN DEL ENLACE AL MENÚ ---
         addToDrawer(new VerticalLayout(
                 inicioLink,
                 aerolineasLink,
                 vuelosLink,
                 agentesLink,
+                supervisoresLink, // <-- Ubicado lógicamente después de Agentes
                 turnosLink,
                 permisosLink,
                 posicionesLink,
-                permisoAgenteAerolineaLink // Añadido el nuevo link
+                permisoAgenteAerolineaLink
         ));
     }
 
      private void logout() {
-        SecurityContextLogoutHandler logoutHandler = new SecurityContextLogoutHandler();
-        logoutHandler.logout(VaadinServletRequest.getCurrent().getHttpServletRequest(), null, null);
-    }
+         SecurityContextLogoutHandler logoutHandler = new SecurityContextLogoutHandler();
+         logoutHandler.logout(VaadinServletRequest.getCurrent().getHttpServletRequest(), null, null);
+     }
 }

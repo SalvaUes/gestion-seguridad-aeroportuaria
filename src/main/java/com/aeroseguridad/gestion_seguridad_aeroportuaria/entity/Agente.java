@@ -5,7 +5,6 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
-import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -13,13 +12,14 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "agentes")
+@Table(name = "agentes") // Mantenemos el nombre de la tabla por ahora para simplicidad
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"posicionesHabilitadas", "permisosAerolinea"})
-@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "permisosAerolinea"})
+// Excluimos las nuevas relaciones recursivas para evitar StackOverflowError
+@ToString(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados"})
+@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados"})
 public class Agente {
 
     @Id
@@ -64,7 +64,23 @@ public class Agente {
     @Column(nullable = false)
     private Boolean activo = true;
 
-    // Los campos 'password' y 'rol' han sido eliminados.
+    // --- CAMBIOS ESTRUCTURALES ---
+
+    // 1. NUEVO CAMPO DE ROL
+    @NotNull(message = "Debe especificar un rol")
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Rol rol;
+
+    // 2. NUEVA RELACIÓN JERÁRQUICA (AUTO-REFERENCIADA)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_superior") // Un agente puede tener un superior (que es otro agente)
+    private Agente superior;
+
+    @OneToMany(mappedBy = "superior", fetch = FetchType.LAZY) // Un agente puede tener muchos subordinados
+    private Set<Agente> subordinados = new HashSet<>();
+
+    // --- RELACIONES EXISTENTES (SIN CAMBIOS) ---
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "agente_habilidades", joinColumns = @JoinColumn(name = "id_agente"), inverseJoinColumns = @JoinColumn(name = "id_posicion"))

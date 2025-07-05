@@ -3,6 +3,7 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Genero;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol; // <-- 1. Importación de Rol
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
@@ -41,10 +42,15 @@ import java.util.stream.Collectors;
 
 public class AgenteForm extends FormLayout {
 
+    // --- CAMPOS DEL FORMULARIO ---
     TextField nombre = new TextField("Nombre");
     TextField apellido = new TextField("Apellido");
     TextField numeroCarnet = new TextField("Número Carnet");
     ComboBox<Genero> genero = new ComboBox<>("Género");
+    
+    // --- 2. NUEVO CAMPO DE ROL ---
+    ComboBox<Rol> rol = new ComboBox<>("Rol en la Operación");
+    
     TextField direccion = new TextField("Dirección");
     DatePicker fechaNacimiento = new DatePicker("Fecha Nacimiento");
     TextField telefono = new TextField("Teléfono");
@@ -52,6 +58,7 @@ public class AgenteForm extends FormLayout {
     Checkbox activo = new Checkbox("Activo");
     CheckboxGroup<PosicionSeguridad> posicionesHabilitadas = new CheckboxGroup<>("Posiciones Habilitadas");
 
+    // --- LÓGICA DE UPLOAD (SIN CAMBIOS) ---
     private MemoryBuffer buffer = new MemoryBuffer();
     private Upload upload = new Upload(buffer);
     private Image previsualizacionFoto = new Image();
@@ -59,6 +66,7 @@ public class AgenteForm extends FormLayout {
     private String nombreArchivoOriginalParaGuardar;
     private InputStream inputStreamArchivoParaGuardar;
 
+    // --- BOTONES (SIN CAMBIOS) ---
     Button save = new Button("Guardar");
     Button delete = new Button("Desactivar");
     Button cancel = new Button("Cancelar");
@@ -66,6 +74,7 @@ public class AgenteForm extends FormLayout {
     private Agente agenteActual;
     private final Validator beanValidator;
 
+    // --- 3. CONSTRUCTOR SIMPLIFICADO Y ACTUALIZADO ---
     public AgenteForm(List<PosicionSeguridad> listaPosicionesDisponibles) {
         addClassName("agente-form");
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
@@ -78,11 +87,16 @@ public class AgenteForm extends FormLayout {
         genero.setRequiredIndicatorVisible(true);
         genero.setItems(Genero.values());
 
+        // Configuración del nuevo campo Rol
+        rol.setRequiredIndicatorVisible(true);
+        rol.setItems(Rol.values()); // Se llena con los valores del Enum
+        rol.setItemLabelGenerator(Rol::getDescripcion); // Muestra la descripción amigable
+
         posicionesHabilitadas.setItems(listaPosicionesDisponibles);
         posicionesHabilitadas.setItemLabelGenerator(PosicionSeguridad::getNombrePosicion);
         posicionesHabilitadas.addThemeVariants(CheckboxGroupVariant.LUMO_VERTICAL);
 
-        // --- Configuración Upload ---
+        // --- Configuración Upload (sin cambios) ---
         upload.setAcceptedFileTypes("image/jpeg", "image/png");
         upload.setMaxFiles(1);
         upload.setDropLabel(new Span("Arrastra la foto aquí"));
@@ -106,8 +120,9 @@ public class AgenteForm extends FormLayout {
         fotoLayout.setPadding(false);
         fotoLayout.setAlignItems(Alignment.CENTER);
 
-        // --- LAYOUT DEL FORMULARIO ---
+        // --- 4. LAYOUT DEL FORMULARIO ACTUALIZADO ---
         add(
+                rol, // Rol es ahora uno de los campos más importantes
                 nombre,
                 apellido,
                 numeroCarnet,
@@ -121,6 +136,7 @@ public class AgenteForm extends FormLayout {
                 posicionesHabilitadas,
                 createButtonsLayout()
         );
+        setColspan(rol, 2); // Ocupa todo el ancho para destacar
         setColspan(posicionesHabilitadas, 2);
         setColspan(direccion, 2);
     }
@@ -141,17 +157,19 @@ public class AgenteForm extends FormLayout {
         return new HorizontalLayout(save, delete, cancel);
     }
 
+    // --- 5. MÉTODO DE GUARDADO ACTUALIZADO ---
     private void validateAndSaveManually() {
         if (agenteActual == null) {
             Notification.show("No hay datos de agente para guardar.", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
         try {
-            // 1. Actualizar el bean 'agenteActual'
+            // Actualizar el bean 'agenteActual'
             agenteActual.setNombre(nombre.getValue());
             agenteActual.setApellido(apellido.getValue());
             agenteActual.setNumeroCarnet(numeroCarnet.getValue());
             agenteActual.setGenero(genero.getValue());
+            agenteActual.setRol(rol.getValue()); // <-- Se asigna el nuevo valor de rol
             agenteActual.setDireccion(direccion.getValue());
             agenteActual.setFechaNacimiento(fechaNacimiento.getValue());
             agenteActual.setTelefono(telefono.getValue());
@@ -159,7 +177,7 @@ public class AgenteForm extends FormLayout {
             agenteActual.setActivo(activo.getValue());
             agenteActual.setPosicionesHabilitadas(posicionesHabilitadas.getValue() != null ? posicionesHabilitadas.getValue() : new HashSet<>());
 
-            // 2. Validar el bean
+            // Validar el bean
             Set<ConstraintViolation<Agente>> violations = beanValidator.validate(agenteActual);
             if (!violations.isEmpty()) {
                 String errorMsg = violations.stream()
@@ -169,7 +187,7 @@ public class AgenteForm extends FormLayout {
                 return;
             }
 
-            // 3. Disparar evento Save
+            // Disparar evento Save
             fireEvent(new SaveEvent(this, agenteActual, inputStreamArchivoParaGuardar, nombreArchivoOriginalParaGuardar));
 
         } catch (Exception e) {
@@ -178,6 +196,7 @@ public class AgenteForm extends FormLayout {
         }
     }
 
+    // --- 6. MÉTODO setAgente ACTUALIZADO ---
     public void setAgente(Agente agente) {
         this.agenteActual = agente;
 
@@ -189,10 +208,12 @@ public class AgenteForm extends FormLayout {
         boolean isExisting = agente != null && agente.getIdAgente() != null;
 
         if (agente != null) {
+            // Mapeo de campos
             nombre.setValue(agente.getNombre() != null ? agente.getNombre() : "");
             apellido.setValue(agente.getApellido() != null ? agente.getApellido() : "");
             numeroCarnet.setValue(agente.getNumeroCarnet() != null ? agente.getNumeroCarnet() : "");
             genero.setValue(agente.getGenero());
+            rol.setValue(agente.getRol()); // <-- Se asigna el valor del rol para edición
             direccion.setValue(agente.getDireccion() != null ? agente.getDireccion() : "");
             fechaNacimiento.setValue(agente.getFechaNacimiento());
             telefono.setValue(agente.getTelefono() != null ? agente.getTelefono() : "");
@@ -219,13 +240,14 @@ public class AgenteForm extends FormLayout {
             apellido.clear();
             numeroCarnet.clear();
             genero.clear();
+            rol.clear(); // <-- Limpiar el nuevo campo
             direccion.clear();
             fechaNacimiento.clear();
             telefono.clear();
             email.clear();
             activo.setValue(false);
-
             posicionesHabilitadas.clear();
+
             previsualizacionFoto.getElement().removeAttribute("src");
             previsualizacionFoto.setVisible(false);
             nombreArchivoSubido.setText("");
@@ -236,52 +258,36 @@ public class AgenteForm extends FormLayout {
         }
     }
 
-    // --- Definición de Eventos Personalizados ---
+    // --- Definición de Eventos Personalizados (SIN CAMBIOS) ---
     public static abstract class AgenteFormEvent extends ComponentEvent<AgenteForm> {
         private Agente agente;
-
         protected AgenteFormEvent(AgenteForm source, Agente agente) {
             super(source, false);
             this.agente = agente;
         }
-
-        public Agente getAgente() {
-            return agente;
-        }
+        public Agente getAgente() { return agente; }
     }
 
     public static class SaveEvent extends AgenteFormEvent {
         private final InputStream fotoStream;
         private final String nombreOriginalFoto;
-
         SaveEvent(AgenteForm source, Agente agente, InputStream fotoStream, String nombreOriginalFoto) {
             super(source, agente);
             this.fotoStream = fotoStream;
             this.nombreOriginalFoto = nombreOriginalFoto;
         }
-
-        public InputStream getFotoStream() {
-            return fotoStream;
-        }
-
-        public String getNombreOriginalFoto() {
-            return nombreOriginalFoto;
-        }
+        public InputStream getFotoStream() { return fotoStream; }
+        public String getNombreOriginalFoto() { return nombreOriginalFoto; }
     }
 
     public static class DeleteEvent extends AgenteFormEvent {
-        DeleteEvent(AgenteForm source, Agente agente) {
-            super(source, agente);
-        }
+        DeleteEvent(AgenteForm source, Agente agente) { super(source, agente); }
     }
 
     public static class CloseEvent extends AgenteFormEvent {
-        CloseEvent(AgenteForm source) {
-            super(source, null);
-        }
+        CloseEvent(AgenteForm source) { super(source, null); }
     }
 
-    // Método genérico para añadir listeners de eventos
     public <T extends ComponentEvent<?>> Registration addListener(Class<T> eventType, ComponentEventListener<T> listener) {
         return getEventBus().addListener(eventType, listener);
     }

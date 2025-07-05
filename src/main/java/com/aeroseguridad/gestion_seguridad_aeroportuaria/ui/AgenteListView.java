@@ -2,16 +2,14 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
-// Quitar import de Grid si ya no se usa para la lista principal
-// import com.vaadin.flow.component.grid.Grid;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.html.Span; // Para mensajes
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.FlexComponent; // Para FlexLayout
-import com.vaadin.flow.component.orderedlayout.FlexLayout; // Para FlexLayout
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
@@ -25,28 +23,24 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import java.util.Collections;
 import java.util.List;
 
 @Route(value = "agentes", layout = MainLayout.class)
-@PageTitle("Agentes | Gestión Seguridad")
+@PageTitle("Personal | Gestión Seguridad") // Renombramos el título para reflejar la nueva realidad
 @PermitAll
 public class AgenteListView extends VerticalLayout {
 
     private final AgenteService agenteService;
 
-    // --- CAMBIO: Quitar Grid, Añadir FlexLayout para tarjetas ---
-    // private Grid<Agente> grid;
-    private FlexLayout agentContainer; // Contenedor para las tarjetas
-    // --- FIN CAMBIO ---
-
+    private FlexLayout agentContainer;
     private TextField filterText;
     private Button addAgenteButton;
-    private AgenteForm form; // Debe ser la versión con Upload
+    private AgenteForm form;
     private HorizontalLayout toolbar;
     private SplitLayout splitLayout;
 
-
+    // --- 1. CONSTRUCTOR SIMPLIFICADO ---
+    // Se elimina la dependencia de SupervisorRepository
     @Autowired
     public AgenteListView(AgenteService agenteService) {
         this.agenteService = agenteService;
@@ -57,22 +51,17 @@ public class AgenteListView extends VerticalLayout {
     @PostConstruct
     private void initLayout() {
         try {
-            // --- CAMBIO: Crear contenedor de tarjetas en lugar de grid ---
             createAgentContainer();
-            // --- FIN CAMBIO ---
-            createForm(); // Asegúrate que AgenteForm es la versión con Upload
+            createForm(); // Este método ahora es más simple
             createToolbar();
 
             if (form == null) {
-                throw new IllegalStateException("AgenteForm no pudo ser instanciado.");
+                throw new IllegalStateException("El formulario de personal no pudo ser instanciado.");
             }
-
-            // --- CAMBIO: Usar agentContainer en el SplitLayout ---
+            
             splitLayout = new SplitLayout(agentContainer, form);
-            // --- FIN CAMBIO ---
             splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-            // Ajustar splitter: más espacio para tarjetas, menos para el form
-            splitLayout.setSplitterPosition(75); // 75% para tarjetas, 25% para form
+            splitLayout.setSplitterPosition(75);
             splitLayout.setSizeFull();
 
             add(toolbar, splitLayout);
@@ -81,9 +70,29 @@ public class AgenteListView extends VerticalLayout {
         } catch (Exception e) {
             System.err.println("Error inicializando AgenteListView: " + e.getMessage());
             e.printStackTrace();
-            Notification.show("Error al cargar la vista de Agentes.",0 , Notification.Position.MIDDLE);
+            Notification.show("Error al cargar la vista de Personal.",0 , Notification.Position.MIDDLE);
         }
     }
+    
+    // --- 2. MÉTODO createForm ACTUALIZADO ---
+    private void createForm() {
+        try {
+            // El formulario ahora solo necesita la lista de posiciones de seguridad.
+            List<PosicionSeguridad> allPosiciones = agenteService.findAllPosiciones();
+            form = new AgenteForm(allPosiciones); 
+            
+            form.setWidth("400px");
+            form.addListener(AgenteForm.SaveEvent.class, this::saveAgente);
+            form.addListener(AgenteForm.DeleteEvent.class, this::deactivateAgente);
+            form.addListener(AgenteForm.CloseEvent.class, e -> closeEditor());
+       } catch (Exception e) {
+           form = null;
+           e.printStackTrace();
+       }
+    }
+    
+    // El resto de la clase no necesita cambios funcionales, ya que la lógica
+    // de guardado y edición depende del evento del formulario, que ya hemos refactorizado.
 
     private void createToolbar() {
         filterText = new TextField();
@@ -92,7 +101,7 @@ public class AgenteListView extends VerticalLayout {
         filterText.setValueChangeMode(ValueChangeMode.LAZY);
         filterText.addValueChangeListener(e -> updateList());
 
-        addAgenteButton = new Button("Nuevo Agente", VaadinIcon.PLUS.create());
+        addAgenteButton = new Button("Nuevo Personal", VaadinIcon.PLUS.create());
         addAgenteButton.addClickListener(click -> addAgente());
 
         toolbar = new HorizontalLayout(filterText, addAgenteButton);
@@ -101,87 +110,57 @@ public class AgenteListView extends VerticalLayout {
         toolbar.setFlexGrow(1, filterText);
     }
 
-    // --- NUEVO MÉTODO para crear el contenedor de tarjetas ---
     private void createAgentContainer() {
         agentContainer = new FlexLayout();
-        agentContainer.addClassName("agente-container"); // Para estilos CSS
-        agentContainer.setFlexWrap(FlexLayout.FlexWrap.WRAP); // Tarjetas se ajustan en múltiples líneas
-        agentContainer.setAlignItems(FlexComponent.Alignment.START); // Alinea tarjetas arriba
-        agentContainer.setJustifyContentMode(FlexComponent.JustifyContentMode.START); // Empieza desde la izquierda
-        // Para permitir scroll vertical si hay muchas tarjetas
+        agentContainer.addClassName("agente-container");
+        agentContainer.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+        agentContainer.setAlignItems(FlexComponent.Alignment.START);
+        agentContainer.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
         agentContainer.getStyle().set("overflow-y", "auto");
-        agentContainer.getStyle().set("padding", "var(--lumo-space-s)"); // Pequeño padding alrededor
+        agentContainer.getStyle().set("padding", "var(--lumo-space-s)");
         agentContainer.setSizeFull();
     }
-    // --- FIN NUEVO MÉTODO ---
 
-    // --- MÉTODO configureGrid YA NO ES NECESARIO para la lista principal ---
-    // private void configureGrid() { ... }
-
-
-    private void createForm() {
-        // ... (sin cambios, asegúrate que AgenteForm es la versión con Upload) ...
-        try {
-            //findAllPosiciones ahora devuelve solo activas
-            List<PosicionSeguridad> allPosiciones = agenteService.findAllPosiciones();
-            form = new AgenteForm(allPosiciones);
-            form.setWidth("400px");
-            form.addListener(AgenteForm.SaveEvent.class, this::saveAgente);
-            form.addListener(AgenteForm.DeleteEvent.class, this::deactivateAgente);
-            form.addListener(AgenteForm.CloseEvent.class, e -> closeEditor());
-         } catch (Exception e) {
-            form = null;
-            e.printStackTrace();
-        }
-    }
-
-    // --- updateList MODIFICADO para poblar el agentContainer con AgenteCard ---
     private void updateList() {
-         if (agentContainer != null) { // Verificar que el contenedor exista
-             try {
-                List<Agente> agentes = agenteService.findAllActiveForView(filterText.getValue());
-                agentContainer.removeAll(); // Limpiar tarjetas anteriores
-                if (agentes.isEmpty()) {
-                    agentContainer.add(new Span("No se encontraron agentes."));
-                } else {
-                    agentes.forEach(agente -> agentContainer.add(new AgenteCard(agente, this)));
-                }
-             } catch (Exception e) {
-                Notification.show("Error al cargar agentes: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                agentContainer.removeAll();
-                agentContainer.add(new Span("Error al cargar la lista de agentes."));
-             }
+         if (agentContainer != null) {
+              try {
+                  List<Agente> agentes = agenteService.findAllActiveForView(filterText.getValue());
+                  agentContainer.removeAll();
+                  if (agentes.isEmpty()) {
+                      agentContainer.add(new Span("No se encontró personal."));
+                  } else {
+                      agentes.forEach(agente -> agentContainer.add(new AgenteCard(agente, this)));
+                  }
+               } catch (Exception e) {
+                  Notification.show("Error al cargar personal: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                           .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                  agentContainer.removeAll();
+                  agentContainer.add(new Span("Error al cargar la lista de personal."));
+               }
          }
     }
-    // --- FIN updateList ---
 
     private void addAgente() {
         if (form == null) return;
-        // grid.asSingleSelect().clear(); // Ya no hay grid principal para deseleccionar
         editAgente(new Agente());
     }
 
-    // editAgente ahora se llama desde AgenteCard o al crear nuevo
-    // Asegúrate que el form se muestre correctamente
     public void editAgente(Agente agente) {
         if (form == null) return;
         if (agente == null) {
             closeEditor();
         } else {
             form.setAgente(agente);
-            form.setVisible(true); // Asegura que el form sea visible
-            // addClassName("editing"); // Opcional si se usa SplitLayout y se quiere estilizar
+            form.setVisible(true);
         }
     }
 
     private void saveAgente(AgenteForm.SaveEvent event) {
-        // ... (La lógica de saveAgente, incluyendo el manejo de la foto, permanece igual) ...
         try {
             agenteService.save(event.getAgente(), event.getFotoStream(), event.getNombreOriginalFoto());
             updateList();
             closeEditor();
-            Notification.show("Agente guardado.", 2000, Notification.Position.BOTTOM_CENTER)
+            Notification.show("Personal guardado.", 2000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         } catch (DataIntegrityViolationException e) {
              handleDataIntegrityViolation(e, event.getAgente());
@@ -190,54 +169,52 @@ public class AgenteListView extends VerticalLayout {
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
         catch (Exception e) {
-             Notification.show("Error inesperado al guardar agente: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+             Notification.show("Error inesperado al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
              e.printStackTrace();
         }
     }
 
     private void handleDataIntegrityViolation(DataIntegrityViolationException e, Agente agente) {
-        // ... (sin cambios) ...
-         String message = "Error: No se pudo guardar el agente.";
+         String message = "Error: No se pudo guardar el registro.";
          String specificCause = e.getMostSpecificCause().getMessage().toLowerCase();
          if (specificCause.contains("agentes_numero_carnet_key") || specificCause.contains("uk_") && specificCause.contains("numero_carnet")) {
-             message = "Error: El Número de Carnet '" + agente.getNumeroCarnet() + "' ya existe.";
-             if (form != null && form.numeroCarnet != null) {
-                 form.numeroCarnet.setInvalid(true);
-                 form.numeroCarnet.setErrorMessage("Este número de carnet ya existe");
-             }
+              message = "Error: El Número de Carnet '" + agente.getNumeroCarnet() + "' ya existe.";
+              if (form != null && form.numeroCarnet != null) {
+                   form.numeroCarnet.setInvalid(true);
+                   form.numeroCarnet.setErrorMessage("Este número de carnet ya existe");
+              }
          } else if (specificCause.contains("agentes_email_key") || specificCause.contains("uk_") && specificCause.contains("email")) {
-             message = "Error: El Email '" + agente.getEmail() + "' ya existe.";
-              if (form != null && form.email != null) {
-                 form.email.setInvalid(true);
-                 form.email.setErrorMessage("Este email ya existe");
-             }
+              message = "Error: El Email '" + agente.getEmail() + "' ya existe.";
+               if (form != null && form.email != null) {
+                   form.email.setInvalid(true);
+                   form.email.setErrorMessage("Este email ya existe");
+              }
          }
          Notification.show(message, 5000, Notification.Position.BOTTOM_CENTER)
-              .addThemeVariants(NotificationVariant.LUMO_ERROR);
+               .addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 
     private void deactivateAgente(AgenteForm.DeleteEvent event) {
-        // ... (sin cambios) ...
         if (form == null) return;
         Agente agenteADesactivar = event.getAgente();
 
         if (agenteADesactivar == null || agenteADesactivar.getIdAgente() == null) {
-             Notification.show("Seleccione un agente guardado para desactivar.", 3000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_WARNING);
+             Notification.show("Seleccione un registro guardado para desactivar.", 3000, Notification.Position.BOTTOM_CENTER)
+                     .addThemeVariants(NotificationVariant.LUMO_WARNING);
              return;
         }
         try {
             agenteService.deactivateById(agenteADesactivar.getIdAgente());
             updateList();
             closeEditor();
-            Notification.show("Agente desactivado.", 2000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+            Notification.show("Personal desactivado.", 2000, Notification.Position.BOTTOM_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
         } catch (EntityNotFoundException enfe) {
-               Notification.show("Error: El agente que intenta desactivar no fue encontrado.", 4000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+               Notification.show("Error: El registro que intenta desactivar no fue encontrado.", 4000, Notification.Position.BOTTOM_CENTER)
+               .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
-            Notification.show("Error al desactivar agente: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+            Notification.show("Error al desactivar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
              e.printStackTrace();
         }
@@ -247,10 +224,6 @@ public class AgenteListView extends VerticalLayout {
          if (form != null) {
             form.setAgente(null);
             form.setVisible(false);
-            // removeClassName("editing"); // Opcional
          }
-         // if (grid != null) { // Ya no hay grid principal para deseleccionar
-         //    grid.asSingleSelect().clear();
-         // }
     }
 }
