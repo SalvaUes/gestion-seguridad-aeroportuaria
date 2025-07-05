@@ -84,6 +84,12 @@
             <artifactId>bootstrap</artifactId>
             <version>${bootstrap.version}</version>
         </dependency>
+        
+          <dependency>
+            <groupId>com.vaadin</groupId>
+            <artifactId>vaadin-server</artifactId>
+            <version>8.8.6</version>
+          </dependency>
         </dependencies>
 
     <dependencyManagement>

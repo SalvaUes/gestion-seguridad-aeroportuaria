@@ -1,8 +1,15 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.stream.Collectors;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente; // Import Agente
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Permiso;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoSolicitudPermiso; // Import EstadoSolicitudPermiso
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Permiso;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService; // Import AgenteService
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PermisoService;
 import com.vaadin.flow.component.button.Button;
@@ -16,17 +23,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+
 import jakarta.annotation.security.PermitAll; // Asumiendo que el usuario logueado puede ver/gestionar todo
 import jakarta.validation.ConstraintViolationException; // Para catch
-import org.springframework.dao.DataIntegrityViolationException; // Para catch
-
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.stream.Collectors;
 
 @Route(value = "permisos", layout = MainLayout.class)
 @PageTitle("Permisos | Gestión Seguridad")

@@ -1,18 +1,20 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoSolicitudPermiso;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Permiso;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PermisoRepository;
+
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

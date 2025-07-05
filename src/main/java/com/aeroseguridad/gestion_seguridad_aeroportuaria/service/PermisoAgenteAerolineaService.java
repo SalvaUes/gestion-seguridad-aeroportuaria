@@ -1,24 +1,25 @@
 // src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/service/PermisoAgenteAerolineaService.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.service;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PermisoAgenteAerolinea;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoPermiso; // Importar
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PermisoAgenteAerolineaRepository;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AerolineaRepository;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList; // Importar
 import java.util.List;
 import java.util.Map; // Importar
 import java.util.Optional;
 import java.util.stream.Collectors; // Importar
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoPermiso; // Importar
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PermisoAgenteAerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AerolineaRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PermisoAgenteAerolineaRepository;
+
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

@@ -1,5 +1,10 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import java.util.Collections;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PosicionSeguridadService;
 import com.vaadin.flow.component.button.Button;
@@ -14,13 +19,10 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import jakarta.persistence.EntityNotFoundException;
-
-import java.util.Collections;
 
 @Route(value = "posiciones", layout = MainLayout.class)
 @PageTitle("Posiciones | Gestión Seguridad")

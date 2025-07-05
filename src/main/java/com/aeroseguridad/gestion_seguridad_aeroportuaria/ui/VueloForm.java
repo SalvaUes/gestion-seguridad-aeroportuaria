@@ -1,6 +1,14 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
+import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoVuelo;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.TipoOperacionVuelo;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
@@ -16,17 +24,11 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.shared.Registration;
+
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
-
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class VueloForm extends FormLayout {
 

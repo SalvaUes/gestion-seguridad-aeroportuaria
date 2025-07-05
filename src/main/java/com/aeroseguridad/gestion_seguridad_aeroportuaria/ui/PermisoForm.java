@@ -1,10 +1,16 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional; // Asegúrate que esté importado
+
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoSolicitudPermiso;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Permiso;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.TipoPermiso;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
-import com.vaadin.flow.component.HasValue; // Asegúrate que esté importado
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -21,10 +27,6 @@ import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.shared.Registration;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Optional; // Asegúrate que esté importado
 
 public class PermisoForm extends FormLayout {
 

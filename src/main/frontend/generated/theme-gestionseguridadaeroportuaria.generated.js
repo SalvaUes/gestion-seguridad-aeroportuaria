@@ -4,6 +4,7 @@ import './theme-gestionseguridadaeroportuaria.components.generated.js';
 let needsReloadOnChanges = false;
 import { color } from '@vaadin/vaadin-lumo-styles/color.js';
 import { typography } from '@vaadin/vaadin-lumo-styles/typography.js';
+import stylesCss from 'themes/gestionseguridadaeroportuaria/styles.css?inline';
 
   let themeRemovers = new WeakMap();
   let targets = [];
@@ -13,7 +14,8 @@ import { typography } from '@vaadin/vaadin-lumo-styles/typography.js';
     if (target !== document) {
       removers.push(injectGlobalCss(color.cssText, '', target, true));
 removers.push(injectGlobalCss(typography.cssText, '', target, true));
-
+removers.push(injectGlobalCss(stylesCss.toString(), '', target));
+    
     }
     
     

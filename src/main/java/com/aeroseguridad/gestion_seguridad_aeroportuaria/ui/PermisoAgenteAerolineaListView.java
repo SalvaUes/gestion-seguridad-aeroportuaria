@@ -1,15 +1,23 @@
 // src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/PermisoAgenteAerolineaListView.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PermisoAgenteAerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoPermiso;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PermisoAgenteAerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AerolineaService;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PermisoAgenteAerolineaService;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -19,16 +27,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Route(value = "permisos-agente-aerolinea-gestion", layout = MainLayout.class)
 @PageTitle("Gestión de Permisos por Agente | Gestión Seguridad")
