@@ -13,19 +13,6 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>gestion-seguridad-aeroportuaria</name>
     <description>Gestion de la seguridad privada aeroportuaria</description>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
 
     <properties>
         <java.version>17</java.version>
@@ -50,6 +37,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
 
         <!-- Vaadin -->
         <dependency>
@@ -57,7 +48,7 @@
             <artifactId>vaadin-spring-boot-starter</artifactId>
         </dependency>
 
-        <!-- CORRECCIÓN: Dependencia JSOUP para resolver el NoClassDefFoundError -->
+        <!-- Dependencia JSOUP para resolver el NoClassDefFoundError -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
@@ -117,7 +108,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <!-- CORRECCIÓN: Se elimina la versión de aquí. Será gestionada por Spring Boot -->
+                            <!-- CORRECCIÓN: Se elimina la etiqueta <version> que causaba el error de construcción -->
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
@@ -134,18 +125,6 @@
                     </excludes>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>com.vaadin</groupId>
-                <artifactId>vaadin-maven-plugin</artifactId>
-                <version>${vaadin.version}</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>prepare-frontend</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
@@ -161,9 +140,9 @@
                         <executions>
                             <execution>
                                 <goals>
+                                    <goal>prepare-frontend</goal>
                                     <goal>build-frontend</goal>
                                 </goals>
-                                <phase>compile</phase>
                             </execution>
                         </executions>
                         <configuration>
