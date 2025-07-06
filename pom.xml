@@ -6,7 +6,8 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.1</version>
-        <relativePath/> </parent>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
     <groupId>com.aeroseguridad</groupId>
     <artifactId>gestion-seguridad-aeroportuaria</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -29,7 +30,8 @@
     <properties>
         <java.version>17</java.version>
         <vaadin.version>24.4.1</vaadin.version>
-        <bootstrap.version>5.3.0</bootstrap.version> </properties>
+        <bootstrap.version>5.3.0</bootstrap.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -52,6 +54,14 @@
             <groupId>com.vaadin</groupId>
             <artifactId>vaadin-spring-boot-starter</artifactId>
         </dependency>
+
+        <!-- CORRECCIÓN 1: Se añade explícitamente la dependencia JSOUP para resolver el NoClassDefFoundError -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
@@ -78,19 +88,15 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.webjars</groupId>
             <artifactId>bootstrap</artifactId>
             <version>${bootstrap.version}</version>
         </dependency>
         
-          <dependency>
-            <groupId>com.vaadin</groupId>
-            <artifactId>vaadin-server</artifactId>
-            <version>8.8.6</version>
-          </dependency>
-        </dependencies>
+        <!-- CORRECCIÓN 2: Se ELIMINÓ la dependencia conflictiva de Vaadin 8 -->
+        <!-- La dependencia de vaadin-server:8.8.6 fue eliminada -->
+    </dependencies>
 
     <dependencyManagement>
         <dependencies>
@@ -114,8 +120,9 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            </path>
-                        </annotationProcessorPaths>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -138,7 +145,6 @@
                     <execution>
                         <goals>
                             <goal>prepare-frontend</goal>
-                            <goal>build-frontend</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -156,8 +162,9 @@
                         <artifactId>vaadin-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>frontend-production</id> <phase>compile</phase> <goals>
-                                    <goal>prepare-frontend</goal>
+                                <id>frontend</id>
+                                <phase>compile</phase>
+                                <goals>
                                     <goal>build-frontend</goal>
                                 </goals>
                                 <configuration>

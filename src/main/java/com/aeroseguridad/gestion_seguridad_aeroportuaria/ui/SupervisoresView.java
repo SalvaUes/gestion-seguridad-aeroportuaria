@@ -4,19 +4,15 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.H4;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
-
-import java.util.Collections;
 
 @Route(value = "organigrama", layout = MainLayout.class)
 @PageTitle("Constructor de Organigrama")
@@ -24,122 +20,47 @@ import java.util.Collections;
 public class SupervisoresView extends VerticalLayout {
 
     private final AgenteService agenteService;
-
-    private ComboBox<Agente> coordinadorSelector;
-    private AssignmentPanel<Agente> supervisorPanel;
-    private AssignmentPanel<Agente> agentePanel;
-
-    private Agente coordinadorSeleccionado;
-    private Agente supervisorSeleccionado;
+    private final Div contentContainer;
 
     public SupervisoresView(AgenteService agenteService) {
         this.agenteService = agenteService;
         setSizeFull();
-        setSpacing(true);
+        setPadding(true);
 
-        add(new H2("Constructor de Organigrama"));
+        add(new H2("Constructor de Equipos y Organigrama"));
 
-        coordinadorSelector = new ComboBox<>("Seleccione un Coordinador");
+        ComboBox<Agente> coordinadorSelector = new ComboBox<>("Seleccione un Coordinador para gestionar su equipo");
         coordinadorSelector.setItems(agenteService.findByRol(Rol.COORDINADOR));
         coordinadorSelector.setItemLabelGenerator(Agente::getNombreCompleto);
         coordinadorSelector.setWidth("50%");
+
+        contentContainer = new Div();
+        contentContainer.setWidthFull();
+
         coordinadorSelector.addValueChangeListener(e -> {
-            this.coordinadorSeleccionado = e.getValue();
-            updateSupervisorPanel();
-            clearAgentePanel();
-        });
-
-        supervisorPanel = new AssignmentPanel<>("Supervisores Disponibles", "Supervisores Asignados", Agente::getNombreCompleto);
-        agentePanel = new AssignmentPanel<>("Agentes Disponibles", "Agentes Asignados", Agente::getNombreCompleto);
-
-        // CORREGIDO: Se utiliza el nuevo método de tipo seguro.
-        supervisorPanel.addAssignmentListener(this::handleSupervisorAssignment);
-        agentePanel.addAssignmentListener(this::handleAgenteAssignment);
-        
-        supervisorPanel.addAssignedSelectionListener(e -> {
-            this.supervisorSeleccionado = e.getFirstSelectedItem().orElse(null);
-            updateAgentePanel();
-        });
-
-        HorizontalLayout panelsLayout = new HorizontalLayout(
-                createTitledPanel("Gestión de Supervisores", supervisorPanel),
-                createTitledPanel("Gestión de Agentes", agentePanel)
-        );
-        panelsLayout.setSizeFull();
-
-        add(coordinadorSelector, panelsLayout);
-
-        clearAgentePanel();
-    }
-
-    private VerticalLayout createTitledPanel(String title, Component content) {
-        H4 header = new H4(title);
-        VerticalLayout panel = new VerticalLayout(header, content);
-        panel.setPadding(false);
-        panel.setSpacing(false);
-        panel.setSizeFull();
-        return panel;
-    }
-
-    private void updateSupervisorPanel() {
-        if (coordinadorSeleccionado != null) {
-            supervisorPanel.setEnabled(true);
-            supervisorPanel.setItems(
-                agenteService.findAgentesDisponiblesPorRol(Rol.SUPERVISOR),
-                agenteService.findSubordinados(coordinadorSeleccionado)
-            );
-        } else {
-            supervisorPanel.setEnabled(false);
-            supervisorPanel.setItems(Collections.emptyList(), Collections.emptyList());
-        }
-    }
-
-    private void updateAgentePanel() {
-        if (supervisorSeleccionado != null) {
-            agentePanel.setEnabled(true);
-            agentePanel.setItems(
-                agenteService.findAgentesDisponiblesPorRol(Rol.AGENTE),
-                agenteService.findSubordinados(supervisorSeleccionado)
-            );
-        } else {
-            clearAgentePanel();
-        }
-    }
-    
-    private void clearAgentePanel() {
-        agentePanel.setEnabled(false);
-        agentePanel.setItems(Collections.emptyList(), Collections.emptyList());
-    }
-
-    private void handleSupervisorAssignment(AssignmentPanel.AssignmentEvent<Agente> event) {
-        try {
-            Agente supervisor = event.getItem();
-            Agente nuevoSuperior = event.isAssignment() ? coordinadorSeleccionado : null;
-            agenteService.asignarSuperior(supervisor, nuevoSuperior);
-            updateSupervisorPanel();
-            
-            if (supervisor.equals(this.supervisorSeleccionado)) {
-                clearAgentePanel();
+            contentContainer.removeAll();
+            if (e.getValue() != null) {
+                displayCoordinatorForEditing(e.getValue());
             }
-            Notification.show("Supervisor " + (event.isAssignment() ? "asignado." : "desasignado."), 2000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        } catch (Exception e) {
-            Notification.show("Error al procesar la asignación del supervisor: " + e.getMessage(), 4000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        }
+        });
+
+        add(coordinadorSelector, contentContainer);
     }
-    
-    private void handleAgenteAssignment(AssignmentPanel.AssignmentEvent<Agente> event) {
-        try {
-            Agente agente = event.getItem();
-            Agente nuevoSuperior = event.isAssignment() ? supervisorSeleccionado : null;
-            agenteService.asignarSuperior(agente, nuevoSuperior);
-            updateAgentePanel();
-            Notification.show("Agente " + (event.isAssignment() ? "asignado." : "desasignado."), 2000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        } catch (Exception e) {
-            Notification.show("Error al procesar la asignación del agente: " + e.getMessage(), 4000, Notification.Position.BOTTOM_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        }
+
+    private void displayCoordinatorForEditing(Agente coordinador) {
+        AgenteCard card = new AgenteCard(coordinador);
+
+        // CORRECCIÓN CLAVE: Se escucha el nuevo evento personalizado y de tipo seguro.
+        card.addCardClickListener(event -> {
+            // El agente se obtiene del propio evento, garantizando que es el correcto.
+            TeamBuilderDialog dialog = new TeamBuilderDialog(event.getAgente(), agenteService);
+            dialog.open();
+        });
+
+        Span instructionText = new Span("Haga clic en la tarjeta para construir o editar el equipo de este coordinador.");
+        instructionText.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.Margin.Bottom.MEDIUM);
+
+        contentContainer.add(instructionText, card);
+        contentContainer.getStyle().set("margin-top", "var(--lumo-space-l)");
     }
 }

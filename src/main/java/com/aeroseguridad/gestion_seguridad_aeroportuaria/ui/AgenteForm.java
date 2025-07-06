@@ -1,9 +1,10 @@
+// RUTA: src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/AgenteForm.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Genero;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol; // <-- 1. Importación de Rol
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
@@ -27,38 +28,32 @@ import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+import com.vaadin.flow.data.binder.BeanValidationBinder; // NUEVO
+import com.vaadin.flow.data.binder.Binder; // NUEVO
+import com.vaadin.flow.data.binder.ValidationException; // NUEVO
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.shared.Registration;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
 
 import java.io.InputStream;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class AgenteForm extends FormLayout {
 
-    // --- CAMPOS DEL FORMULARIO ---
+    // --- CAMPOS DEL FORMULARIO (Sin cambios) ---
     TextField nombre = new TextField("Nombre");
     TextField apellido = new TextField("Apellido");
     TextField numeroCarnet = new TextField("Número Carnet");
     ComboBox<Genero> genero = new ComboBox<>("Género");
-    
-    // --- 2. NUEVO CAMPO DE ROL ---
     ComboBox<Rol> rol = new ComboBox<>("Rol en la Operación");
-    
-    TextField direccion = new TextField("Dirección");
-    DatePicker fechaNacimiento = new DatePicker("Fecha Nacimiento");
-    TextField telefono = new TextField("Teléfono");
     EmailField email = new EmailField("Email");
+    TextField telefono = new TextField("Teléfono");
+    DatePicker fechaNacimiento = new DatePicker("Fecha Nacimiento");
+    TextField direccion = new TextField("Dirección");
     Checkbox activo = new Checkbox("Activo");
     CheckboxGroup<PosicionSeguridad> posicionesHabilitadas = new CheckboxGroup<>("Posiciones Habilitadas");
 
-    // --- LÓGICA DE UPLOAD (SIN CAMBIOS) ---
+    // --- LÓGICA DE UPLOAD ---
     private MemoryBuffer buffer = new MemoryBuffer();
     private Upload upload = new Upload(buffer);
     private Image previsualizacionFoto = new Image();
@@ -66,49 +61,32 @@ public class AgenteForm extends FormLayout {
     private String nombreArchivoOriginalParaGuardar;
     private InputStream inputStreamArchivoParaGuardar;
 
-    // --- BOTONES (SIN CAMBIOS) ---
+    // --- BOTONES ---
     Button save = new Button("Guardar");
-    Button delete = new Button("Desactivar");
+    // CORRECCIÓN: El texto del botón ahora refleja la acción de borrado permanente.
+    Button delete = new Button("Eliminar");
     Button cancel = new Button("Cancelar");
 
-    private Agente agenteActual;
-    private final Validator beanValidator;
+    // NUEVO: Se introduce el Binder de Vaadin para gestionar el estado del formulario.
+    private Binder<Agente> binder = new BeanValidationBinder<>(Agente.class);
+    private Agente agenteActual; // Mantenemos la referencia al bean actual
 
-    // --- 3. CONSTRUCTOR SIMPLIFICADO Y ACTUALIZADO ---
     public AgenteForm(List<PosicionSeguridad> listaPosicionesDisponibles) {
         addClassName("agente-form");
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        beanValidator = factory.getValidator();
+        
+        // MODIFICADO: Se configura el Binder para vincular los campos con el bean.
+        configureBinder();
 
         // --- Configuración Campos ---
-        nombre.setRequiredIndicatorVisible(true);
-        apellido.setRequiredIndicatorVisible(true);
-        numeroCarnet.setRequiredIndicatorVisible(true);
-        genero.setRequiredIndicatorVisible(true);
         genero.setItems(Genero.values());
-
-        // Configuración del nuevo campo Rol
-        rol.setRequiredIndicatorVisible(true);
-        rol.setItems(Rol.values()); // Se llena con los valores del Enum
-        rol.setItemLabelGenerator(Rol::getDescripcion); // Muestra la descripción amigable
-
+        rol.setItems(Rol.values());
+        rol.setItemLabelGenerator(Rol::getDescripcion);
         posicionesHabilitadas.setItems(listaPosicionesDisponibles);
         posicionesHabilitadas.setItemLabelGenerator(PosicionSeguridad::getNombrePosicion);
         posicionesHabilitadas.addThemeVariants(CheckboxGroupVariant.LUMO_VERTICAL);
 
         // --- Configuración Upload (sin cambios) ---
-        upload.setAcceptedFileTypes("image/jpeg", "image/png");
-        upload.setMaxFiles(1);
-        upload.setDropLabel(new Span("Arrastra la foto aquí"));
-        upload.addSucceededListener(event -> {
-            this.inputStreamArchivoParaGuardar = buffer.getInputStream();
-            this.nombreArchivoOriginalParaGuardar = event.getFileName();
-            nombreArchivoSubido.setText("Nuevo archivo: " + nombreArchivoOriginalParaGuardar);
-            previsualizacionFoto.setSrc(new StreamResource(event.getFileName(), () -> buffer.getInputStream()));
-            previsualizacionFoto.setVisible(true);
-            if (agenteActual != null) save.setEnabled(true);
-        });
-        upload.addFileRejectedListener(event -> Notification.show("Archivo rechazado: " + event.getErrorMessage(), 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR));
+        configureUpload();
 
         previsualizacionFoto.setWidth("100px");
         previsualizacionFoto.setHeight("100px");
@@ -120,25 +98,44 @@ public class AgenteForm extends FormLayout {
         fotoLayout.setPadding(false);
         fotoLayout.setAlignItems(Alignment.CENTER);
 
-        // --- 4. LAYOUT DEL FORMULARIO ACTUALIZADO ---
-        add(
-                rol, // Rol es ahora uno de los campos más importantes
-                nombre,
-                apellido,
-                numeroCarnet,
-                genero,
-                email,
-                telefono,
-                fechaNacimiento,
-                direccion,
-                activo,
-                fotoLayout,
-                posicionesHabilitadas,
-                createButtonsLayout()
-        );
-        setColspan(rol, 2); // Ocupa todo el ancho para destacar
+        // --- Layout del Formulario ---
+        add(rol, nombre, apellido, numeroCarnet, genero, email, telefono, fechaNacimiento, direccion, activo, fotoLayout, posicionesHabilitadas, createButtonsLayout());
+        setColspan(rol, 2);
         setColspan(posicionesHabilitadas, 2);
         setColspan(direccion, 2);
+        setColspan(fotoLayout, 2);
+    }
+    
+    // NUEVO: Método para encapsular la configuración del Binder.
+    private void configureBinder() {
+        binder.forField(nombre).asRequired("El nombre no puede estar vacío").bind("nombre");
+        binder.forField(apellido).asRequired("El apellido no puede estar vacío").bind("apellido");
+        binder.forField(numeroCarnet).asRequired("El número de carnet no puede estar vacío").bind("numeroCarnet");
+        binder.forField(genero).asRequired("Debe seleccionar un género").bind("genero");
+        binder.forField(rol).asRequired("Debe especificar un rol").bind("rol");
+        binder.forField(email).asRequired("El email no puede estar vacío").bind("email");
+        binder.forField(fechaNacimiento).bind("fechaNacimiento");
+        binder.forField(telefono).bind("telefono");
+        binder.forField(direccion).bind("direccion");
+        binder.forField(activo).bind("activo");
+        binder.forField(posicionesHabilitadas).bind("posicionesHabilitadas");
+
+        // Cuando cualquier valor cambia, se habilita el botón de guardar.
+        binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
+    }
+
+    private void configureUpload() {
+        upload.setAcceptedFileTypes("image/jpeg", "image/png");
+        upload.setMaxFiles(1);
+        upload.setDropLabel(new Span("Arrastra la foto aquí"));
+        upload.addSucceededListener(event -> {
+            this.inputStreamArchivoParaGuardar = buffer.getInputStream();
+            this.nombreArchivoOriginalParaGuardar = event.getFileName();
+            nombreArchivoSubido.setText("Nuevo archivo: " + nombreArchivoOriginalParaGuardar);
+            previsualizacionFoto.setSrc(new StreamResource(event.getFileName(), () -> buffer.getInputStream()));
+            previsualizacionFoto.setVisible(true);
+        });
+        upload.addFileRejectedListener(event -> Notification.show("Archivo rechazado: " + event.getErrorMessage(), 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR));
     }
 
     private Component createButtonsLayout() {
@@ -148,114 +145,73 @@ public class AgenteForm extends FormLayout {
         save.addClickShortcut(Key.ENTER);
         cancel.addClickShortcut(Key.ESCAPE);
 
-        save.addClickListener(event -> validateAndSaveManually());
+        // MODIFICADO: El listener de Guardar ahora usa el Binder.
+        save.addClickListener(event -> validateAndSave());
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, agenteActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
-
-        save.setEnabled(false);
-        delete.setEnabled(false);
+        
         return new HorizontalLayout(save, delete, cancel);
     }
 
-    // --- 5. MÉTODO DE GUARDADO ACTUALIZADO ---
-    private void validateAndSaveManually() {
-        if (agenteActual == null) {
-            Notification.show("No hay datos de agente para guardar.", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
-            return;
-        }
+    // MODIFICADO: Lógica de guardado simplificada gracias al Binder.
+    private void validateAndSave() {
         try {
-            // Actualizar el bean 'agenteActual'
-            agenteActual.setNombre(nombre.getValue());
-            agenteActual.setApellido(apellido.getValue());
-            agenteActual.setNumeroCarnet(numeroCarnet.getValue());
-            agenteActual.setGenero(genero.getValue());
-            agenteActual.setRol(rol.getValue()); // <-- Se asigna el nuevo valor de rol
-            agenteActual.setDireccion(direccion.getValue());
-            agenteActual.setFechaNacimiento(fechaNacimiento.getValue());
-            agenteActual.setTelefono(telefono.getValue());
-            agenteActual.setEmail(email.getValue());
-            agenteActual.setActivo(activo.getValue());
-            agenteActual.setPosicionesHabilitadas(posicionesHabilitadas.getValue() != null ? posicionesHabilitadas.getValue() : new HashSet<>());
-
-            // Validar el bean
-            Set<ConstraintViolation<Agente>> violations = beanValidator.validate(agenteActual);
-            if (!violations.isEmpty()) {
-                String errorMsg = violations.stream()
-                        .map(ConstraintViolation::getMessage)
-                        .collect(Collectors.joining("; "));
-                Notification.show("Error de validación: " + errorMsg, 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                return;
-            }
-
-            // Disparar evento Save
+            // El binder escribe los valores de la UI al bean 'agenteActual'.
+            // Si la validación falla, lanza una excepción y no continúa.
+            binder.writeBean(agenteActual);
+            
+            // Si la escritura y validación son exitosas, disparamos el evento de guardado.
             fireEvent(new SaveEvent(this, agenteActual, inputStreamArchivoParaGuardar, nombreArchivoOriginalParaGuardar));
 
+        } catch (ValidationException e) {
+            Notification.show("Hay errores de validación en el formulario.", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
-            Notification.show("Error inesperado: " + e.getMessage(), 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            Notification.show("Error inesperado al guardar: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
             e.printStackTrace();
         }
     }
 
-    // --- 6. MÉTODO setAgente ACTUALIZADO ---
+    // MODIFICADO: setAgente ahora es mucho más simple.
     public void setAgente(Agente agente) {
         this.agenteActual = agente;
+        // El Binder se encarga de poblar todos los campos vinculados.
+        binder.setBean(agente);
 
+        // Reseteamos el estado de la subida de archivos
         this.inputStreamArchivoParaGuardar = null;
         this.nombreArchivoOriginalParaGuardar = null;
         nombreArchivoSubido.setText("");
         upload.clearFileList();
 
-        boolean isExisting = agente != null && agente.getIdAgente() != null;
+        boolean isNew = agente == null || agente.getIdAgente() == null;
+        
+        if (agente == null) {
+            // Si el agente es nulo, el formulario se limpia y los botones se desactivan.
+            setVisible(false);
+            return;
+        }
 
-        if (agente != null) {
-            // Mapeo de campos
-            nombre.setValue(agente.getNombre() != null ? agente.getNombre() : "");
-            apellido.setValue(agente.getApellido() != null ? agente.getApellido() : "");
-            numeroCarnet.setValue(agente.getNumeroCarnet() != null ? agente.getNumeroCarnet() : "");
-            genero.setValue(agente.getGenero());
-            rol.setValue(agente.getRol()); // <-- Se asigna el valor del rol para edición
-            direccion.setValue(agente.getDireccion() != null ? agente.getDireccion() : "");
-            fechaNacimiento.setValue(agente.getFechaNacimiento());
-            telefono.setValue(agente.getTelefono() != null ? agente.getTelefono() : "");
-            email.setValue(agente.getEmail() != null ? agente.getEmail() : "");
-            activo.setValue(agente.getActivo() != null ? agente.getActivo() : true);
-            posicionesHabilitadas.setValue(agente.getPosicionesHabilitadas() != null ? agente.getPosicionesHabilitadas() : new HashSet<>());
+        setVisible(true);
+        nombre.focus();
 
-            if (isExisting && agente.getRutaFotografia() != null && !agente.getRutaFotografia().isEmpty()) {
-                previsualizacionFoto.setSrc("agent-photos/" + agente.getRutaFotografia());
-                previsualizacionFoto.setVisible(true);
-                nombreArchivoSubido.setText("Foto actual: " + agente.getRutaFotografia());
-            } else {
-                previsualizacionFoto.getElement().removeAttribute("src");
-                previsualizacionFoto.setVisible(false);
-            }
-
-            save.setEnabled(true);
-            delete.setEnabled(isExisting && agente.getActivo());
-            activo.setEnabled(isExisting);
-
+        if (agente.getPosicionesHabilitadas() == null) {
+            agente.setPosicionesHabilitadas(new HashSet<>());
+        }
+        
+        if (!isNew && agente.getRutaFotografia() != null && !agente.getRutaFotografia().isEmpty()) {
+            previsualizacionFoto.setSrc("agent-photos/" + agente.getRutaFotografia());
+            previsualizacionFoto.setVisible(true);
+            nombreArchivoSubido.setText("Foto actual: " + agente.getRutaFotografia());
         } else {
-            // Limpia el formulario cuando agente es null
-            nombre.clear();
-            apellido.clear();
-            numeroCarnet.clear();
-            genero.clear();
-            rol.clear(); // <-- Limpiar el nuevo campo
-            direccion.clear();
-            fechaNacimiento.clear();
-            telefono.clear();
-            email.clear();
-            activo.setValue(false);
-            posicionesHabilitadas.clear();
-
             previsualizacionFoto.getElement().removeAttribute("src");
             previsualizacionFoto.setVisible(false);
-            nombreArchivoSubido.setText("");
-
-            save.setEnabled(false);
-            delete.setEnabled(false);
-            activo.setEnabled(false);
         }
+        
+        // La habilitación del botón de guardar es manejada por el status listener del binder
+        delete.setEnabled(!isNew);
+        activo.setEnabled(!isNew);
     }
 
     // --- Definición de Eventos Personalizados (SIN CAMBIOS) ---

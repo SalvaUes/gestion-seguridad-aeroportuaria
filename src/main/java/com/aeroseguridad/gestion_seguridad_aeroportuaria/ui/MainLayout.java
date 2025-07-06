@@ -1,8 +1,7 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.PermisoAgenteAerolineaListView;
-// --- 1. IMPORTACIÓN DE LA NUEVA VISTA ---
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.SupervisoresView;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
@@ -18,7 +17,6 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.HighlightConditions;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
-import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 
 public class MainLayout extends AppLayout {

@@ -1,5 +1,10 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
@@ -15,19 +20,14 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.shared.Registration;
+
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class NecesidadVueloForm extends Dialog {
 
