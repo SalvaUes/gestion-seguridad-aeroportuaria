@@ -1,17 +1,31 @@
-# Usa una imagen base de Java 17 JRE ligera (ajusta si usas otra versión de Java)
+# FASE 1: Construir el JAR con Maven
+# Usamos una imagen de Maven que incluye JDK 17 para compilar el proyecto.
+FROM maven:3.9.6-eclipse-temurin-17 AS build
+
+# CORRECCIÓN CLAVE: Se establece el directorio de trabajo.
+# Todas las siguientes instrucciones se ejecutarán dentro de /usr/src/app.
+WORKDIR /usr/src/app
+
+# Copiamos primero el pom.xml para aprovechar el cache de capas de Docker.
+COPY pom.xml .
+
+# Copiamos el resto del código fuente del proyecto.
+COPY src ./src
+
+# Ejecutamos el comando de Maven para construir el JAR.
+# Ahora se creará la carpeta 'target' dentro de /usr/src/app.
+RUN mvn install -DskipTests
+
+# FASE 2: Crear la imagen final y ligera para ejecución
+# Usamos una imagen optimizada de Java 17 para ejecutar la aplicación.
 FROM eclipse-temurin:17-jre-jammy
 
-# Argumento para el nombre del JAR (lo pasaremos desde Maven o al construir)
-ARG JAR_FILE=target/*.jar
+# CORRECCIÓN: Se especifica la ruta completa y correcta desde donde copiar el JAR.
+# El JAR se encuentra en /usr/src/app/target/ en la fase de 'build'.
+COPY --from=build /usr/src/app/target/*.jar /app.jar
 
-# Establece un directorio de trabajo dentro del contenedor
-WORKDIR /app
-
-# Copia el archivo JAR desde la carpeta target al directorio de trabajo en el contenedor
-COPY ${JAR_FILE} app.jar
-
-# Expone el puerto en el que corre la aplicación Spring Boot (por defecto 8080)
+# Exponemos el puerto 8080 (el que usa Spring Boot por defecto)
 EXPOSE 8080
 
-# Comando para ejecutar la aplicación cuando el contenedor inicie
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Comando para ejecutar la aplicación cuando el contenedor se inicie
+ENTRYPOINT ["java","-jar","/app.jar"]
