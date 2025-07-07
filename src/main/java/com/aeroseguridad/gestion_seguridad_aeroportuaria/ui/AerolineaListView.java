@@ -1,12 +1,14 @@
+// RUTA: src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/AerolineaListView.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-// Asegúrate de tener todos los imports necesarios
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AerolineaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -16,12 +18,10 @@ import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route; // Import correcto
-import jakarta.annotation.security.PermitAll; // Import correcto
+import com.vaadin.flow.router.Route;
+import jakarta.annotation.security.PermitAll;
 import org.springframework.beans.factory.annotation.Autowired;
 
-
-// Modificación: layout = MainLayout.class
 @Route(value = "aerolineas", layout = MainLayout.class)
 @PageTitle("Aerolíneas | Gestión Seguridad")
 @PermitAll
@@ -45,17 +45,23 @@ public class AerolineaListView extends VerticalLayout {
     public AerolineaListView(AerolineaService aerolineaService) {
         this.aerolineaService = aerolineaService;
         addClassName("aerolinea-list-view");
-        // Quité setSizeFull()
+        setSizeFull(); // Es seguro añadirlo de nuevo para que ocupe todo el espacio.
 
         configureGrid();
         configureForm();
         configureToolbar();
 
-        add(
-                configureToolbar(),
-                grid,
-                form
-        );
+        // --- MEJORA: Encabezado estándar de la vista ---
+        H2 header = new H2("Gestión de Aerolíneas");
+        header.getStyle().set("margin-top", "var(--lumo-space-m)");
+        header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
+
+        // --- MEJORA: Contenedor para el Grid y el Formulario ---
+        Div content = new Div(grid, form);
+        content.addClassName("content");
+        content.setSizeFull();
+
+        add(header, configureToolbar(), content);
 
         updateList();
         closeEditor();
@@ -70,18 +76,25 @@ public class AerolineaListView extends VerticalLayout {
 
     private void configureGrid() {
         grid.addClassName("aerolinea-grid");
-        // grid.setSizeFull(); // El layout padre controla tamaño
+        grid.setSizeFull();
         grid.addColumn(Aerolinea::getNombre).setHeader("Nombre").setSortable(true);
         grid.addColumn(Aerolinea::getCodigoIata).setHeader("Código IATA").setSortable(true);
         grid.addColumn(aerolinea -> aerolinea.getActivo() ? "Sí" : "No").setHeader("Activo").setSortable(true);
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
+        grid.asSingleSelect().addValueChangeListener(e -> editAerolinea(e.getValue()));
     }
 
     private void configureForm() {
         binder.bindInstanceFields(this);
+        // --- MEJORA: Formulario Responsivo ---
+        form.setResponsiveSteps(
+            new FormLayout.ResponsiveStep("0", 1),
+            new FormLayout.ResponsiveStep("500px", 2)
+        );
+
         saveButton.addClickListener(event -> validateAndSave());
         cancelButton.addClickListener(event -> closeEditor());
-        form.add(nombre, codigoIata, activo, saveButton, cancelButton);
+        form.add(nombre, codigoIata, activo, new HorizontalLayout(saveButton, cancelButton));
     }
 
     private void updateList() {
@@ -101,7 +114,6 @@ public class AerolineaListView extends VerticalLayout {
             binder.setBean(aerolineaActual);
             form.setVisible(true);
             addClassName("editing");
-            // nombre.focus(); // Comentado para evitar errores previos
         }
     }
 
@@ -110,21 +122,23 @@ public class AerolineaListView extends VerticalLayout {
             binder.writeBean(aerolineaActual);
             aerolineaService.save(aerolineaActual);
             Notification.show("Aerolínea guardada.", 3000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             updateList();
             closeEditor();
         } catch (ValidationException e) {
             Notification.show("Error de validación. Revise los campos.", 3000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
-             Notification.show("Error al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            Notification.show("Error al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
     private void closeEditor() {
         this.aerolineaActual = null;
-        binder.setBean(null);
+        if (binder.getBean() != null) {
+            binder.setBean(null);
+        }
         form.setVisible(false);
         removeClassName("editing");
     }

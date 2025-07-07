@@ -5,10 +5,13 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
+import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -37,6 +40,9 @@ import java.util.Map;
 @PageTitle("Gestión de Personal")
 @PermitAll
 public class AgenteListView extends VerticalLayout {
+
+
+    
 
     private final AgenteService agenteService;
 
@@ -73,7 +79,14 @@ public class AgenteListView extends VerticalLayout {
         splitLayout.setSplitterPosition(75);
         splitLayout.setSizeFull();
 
-        add(toolbar, splitLayout);
+        // --- Encabezado ---
+        H2 header = new H2("Gestión de Personal");
+        header.getStyle().set("margin-top", "0"); // Ajustado para mejor alineación
+        header.getStyle().set("margin-bottom", "0");
+        header.getStyle().set("padding-left", "var(--lumo-space-m)");
+        header.getStyle().set("font-size", "var(--lumo-font-size-xl)");
+
+        add(header, toolbar, splitLayout);
         updateList();
         closeEditor();
     }
@@ -106,6 +119,7 @@ public class AgenteListView extends VerticalLayout {
         toolbar = new HorizontalLayout(filterText, rolFilter, estadoFilter, addAgenteButton);
         toolbar.setAlignItems(FlexComponent.Alignment.BASELINE);
         toolbar.addClassName("toolbar");
+        toolbar.getStyle().set("flex-wrap", "wrap");
         toolbar.setWidthFull();
         toolbar.setFlexGrow(1, filterText);
     }
@@ -280,6 +294,30 @@ public class AgenteListView extends VerticalLayout {
         if (form != null) {
             form.setAgente(null);
             form.setVisible(false);
+        }
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        UI ui = attachEvent.getUI();
+        ui.getPage().retrieveExtendedClientDetails(details -> {
+            if (splitLayout != null) {
+                updateLayoutForWidth(details.getBodyClientWidth());
+            }
+        });
+        ui.getPage().addBrowserWindowResizeListener(event -> {
+            if (splitLayout != null) {
+                updateLayoutForWidth(event.getWidth());
+            }
+        });
+    }
+
+    private void updateLayoutForWidth(int width) {
+        if (width < 800) {
+            splitLayout.setOrientation(SplitLayout.Orientation.VERTICAL);
+        } else {
+            splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
         }
     }
 }

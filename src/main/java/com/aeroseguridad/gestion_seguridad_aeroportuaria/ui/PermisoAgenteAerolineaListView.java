@@ -1,14 +1,5 @@
-// src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/PermisoAgenteAerolineaListView.java
+// RUTA: src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/PermisoAgenteAerolineaListView.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
@@ -19,6 +10,7 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PermisoAgenteAerolineaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -27,12 +19,19 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Route(value = "permisos-agente-aerolinea-gestion", layout = MainLayout.class)
-@PageTitle("Gestión de Permisos por Agente | Gestión Seguridad")
+@PageTitle("Permisos por Aerolínea | Gestión Seguridad")
 @PermitAll
 public class PermisoAgenteAerolineaListView extends VerticalLayout {
 
@@ -65,8 +64,13 @@ public class PermisoAgenteAerolineaListView extends VerticalLayout {
                 throw new IllegalStateException("El formulario PermisoAgenteAerolineaForm no pudo ser instanciado.");
             }
 
+            // --- MEJORA: Encabezado de la Vista ---
+            H2 header = new H2("Permisos por Aerolínea");
+            header.getStyle().set("margin-top", "var(--lumo-space-m)");
+            header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
+
             HorizontalLayout filterLayout = createFilterLayout();
-            add(filterLayout, form, overviewGrid);
+            add(header, filterLayout, form, overviewGrid);
 
             form.setVisible(true);
             overviewGrid.setVisible(true);
@@ -76,7 +80,7 @@ public class PermisoAgenteAerolineaListView extends VerticalLayout {
             System.err.println("Error inicializando GestionPermisosPorAgenteView: " + e.getMessage());
             e.printStackTrace();
             Notification.show("Error al cargar la vista de gestión de permisos.", 0, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
@@ -91,6 +95,8 @@ public class PermisoAgenteAerolineaListView extends VerticalLayout {
 
         HorizontalLayout layout = new HorizontalLayout(carnetAgenteFilter, buscarButton);
         layout.setAlignItems(Alignment.BASELINE);
+        // --- MEJORA: Responsividad del Toolbar ---
+        layout.getStyle().set("flex-wrap", "wrap");
         return layout;
     }
 
@@ -99,11 +105,9 @@ public class PermisoAgenteAerolineaListView extends VerticalLayout {
         if (carnet != null && !carnet.trim().isEmpty()) {
             Optional<Agente> agenteOpt = agenteService.findActivoByNumeroCarnet(carnet.trim());
             if (agenteOpt.isPresent()) {
-                // --- CORRECCIÓN: Usar el getter ---
                 if (form != null && form.getAgenteComboBox() != null) {
                     form.getAgenteComboBox().setValue(agenteOpt.get());
                 }
-                // --- FIN CORRECCIÓN ---
             } else {
                 Notification.show("Agente no encontrado con carnet: " + carnet, 3000, Notification.Position.BOTTOM_START);
                 if (form != null) form.setAgente(null);
@@ -175,25 +179,21 @@ public class PermisoAgenteAerolineaListView extends VerticalLayout {
 
             service.guardarPermisosParaAgente(agente, mapaPermisos);
             Notification.show("Permisos guardados para el agente: " + agente.getNombreCompleto(), 2000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            
-            // Vuelve a cargar los permisos para el agente actual en el formulario y actualiza el grid de resumen
-            // --- CORRECCIÓN: Usar el getter ---
+                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
             if (form != null && form.getAgenteComboBox() != null && form.getAgenteComboBox().getValue() != null && form.getAgenteComboBox().getValue().equals(agente)){
-            // --- FIN CORRECCIÓN ---
-                 cargarPermisosParaAgenteEnForm(new PermisoAgenteAerolineaForm.AgenteSelectedEvent(form, agente));
-            } else if (form != null && form.getAgenteComboBox() != null) { // Asegurar que no sea null
-                 form.getAgenteComboBox().setValue(agente); // Esto debería disparar la carga
+                cargarPermisosParaAgenteEnForm(new PermisoAgenteAerolineaForm.AgenteSelectedEvent(form, agente));
+            } else if (form != null && form.getAgenteComboBox() != null) {
+                form.getAgenteComboBox().setValue(agente);
             }
             updateOverviewGrid(agente);
 
-
         } catch (DataIntegrityViolationException e) {
             Notification.show("Error de integridad: " + e.getMostSpecificCause().getMessage(), 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
             Notification.show("Error inesperado al guardar permisos: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
             e.printStackTrace();
         }
     }

@@ -15,7 +15,7 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.RolesAllowed;
 
 @Route(value = "organigrama", layout = MainLayout.class)
-@PageTitle("Constructor de Organigrama")
+@PageTitle("Supervisores | Gestión Seguridad")
 @RolesAllowed("ROLE_ADMIN")
 public class SupervisoresView extends VerticalLayout {
 
@@ -27,12 +27,19 @@ public class SupervisoresView extends VerticalLayout {
         setSizeFull();
         setPadding(true);
 
-        add(new H2("Constructor de Equipos y Organigrama"));
+        // --- MEJORA: Encabezado estándar de la vista ---
+        H2 header = new H2("Gestión de Supervisores");
+        header.getStyle().set("margin-top", "var(--lumo-space-m)");
+        header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
+        add(header);
 
         ComboBox<Agente> coordinadorSelector = new ComboBox<>("Seleccione un Coordinador para gestionar su equipo");
         coordinadorSelector.setItems(agenteService.findByRol(Rol.COORDINADOR));
         coordinadorSelector.setItemLabelGenerator(Agente::getNombreCompleto);
-        coordinadorSelector.setWidth("50%");
+
+        // --- MEJORA: Ancho responsivo para el ComboBox ---
+        coordinadorSelector.setWidthFull();
+        coordinadorSelector.setMaxWidth("700px");
 
         contentContainer = new Div();
         contentContainer.setWidthFull();
@@ -50,9 +57,7 @@ public class SupervisoresView extends VerticalLayout {
     private void displayCoordinatorForEditing(Agente coordinador) {
         AgenteCard card = new AgenteCard(coordinador);
 
-        // CORRECCIÓN CLAVE: Se escucha el nuevo evento personalizado y de tipo seguro.
         card.addCardClickListener(event -> {
-            // El agente se obtiene del propio evento, garantizando que es el correcto.
             TeamBuilderDialog dialog = new TeamBuilderDialog(event.getAgente(), agenteService);
             dialog.open();
         });
