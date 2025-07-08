@@ -8,14 +8,17 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+
 import jakarta.annotation.security.RolesAllowed;
 
 @Route(value = "organigrama", layout = MainLayout.class)
-@PageTitle("Supervisores | Gestión Seguridad")
+@PageTitle("Organigrama | Gestión Seguridad")
 @RolesAllowed("ROLE_ADMIN")
 public class SupervisoresView extends VerticalLayout {
 
@@ -25,22 +28,25 @@ public class SupervisoresView extends VerticalLayout {
     public SupervisoresView(AgenteService agenteService) {
         this.agenteService = agenteService;
         setSizeFull();
-        setPadding(true);
+        setPadding(false); // Padding controlado por los elementos internos
 
-        // --- MEJORA: Encabezado estándar de la vista ---
-        H2 header = new H2("Gestión de Supervisores");
-        header.getStyle().set("margin-top", "var(--lumo-space-m)");
-        header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
-        add(header);
-
-        ComboBox<Agente> coordinadorSelector = new ComboBox<>("Seleccione un Coordinador para gestionar su equipo");
+        // Encabezado estándar
+        H2 title = new H2("Organigrama y Equipos");
+        title.getStyle().set("font-size", "var(--lumo-font-size-xxl)").set("margin", "0");
+        
+        HorizontalLayout headerBar = new HorizontalLayout(title);
+        headerBar.setWidthFull();
+        headerBar.getStyle().set("padding", "var(--lumo-space-m)");
+        headerBar.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        
+        // Selector de Coordinador
+        ComboBox<Agente> coordinadorSelector = new ComboBox<>("Seleccione un Coordinador");
         coordinadorSelector.setItems(agenteService.findByRol(Rol.COORDINADOR));
         coordinadorSelector.setItemLabelGenerator(Agente::getNombreCompleto);
-
-        // --- MEJORA: Ancho responsivo para el ComboBox ---
         coordinadorSelector.setWidthFull();
         coordinadorSelector.setMaxWidth("700px");
 
+        // Contenedor para el resultado
         contentContainer = new Div();
         contentContainer.setWidthFull();
 
@@ -50,8 +56,14 @@ public class SupervisoresView extends VerticalLayout {
                 displayCoordinatorForEditing(e.getValue());
             }
         });
-
-        add(coordinadorSelector, contentContainer);
+        
+        // Layout para centrar el contenido principal
+        VerticalLayout mainContent = new VerticalLayout(coordinadorSelector, contentContainer);
+        mainContent.setWidthFull();
+        mainContent.setAlignItems(FlexComponent.Alignment.CENTER);
+        mainContent.getStyle().set("padding", "var(--lumo-space-l)");
+        
+        add(headerBar, mainContent);
     }
 
     private void displayCoordinatorForEditing(Agente coordinador) {
@@ -62,10 +74,14 @@ public class SupervisoresView extends VerticalLayout {
             dialog.open();
         });
 
-        Span instructionText = new Span("Haga clic en la tarjeta para construir o editar el equipo de este coordinador.");
+        Span instructionText = new Span("Haga clic en la tarjeta para construir o editar el equipo.");
         instructionText.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.Margin.Bottom.MEDIUM);
+        
+        VerticalLayout cardLayout = new VerticalLayout(instructionText, card);
+        cardLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        cardLayout.setSpacing(true);
+        cardLayout.setPadding(false);
 
-        contentContainer.add(instructionText, card);
-        contentContainer.getStyle().set("margin-top", "var(--lumo-space-l)");
+        contentContainer.add(cardLayout);
     }
 }

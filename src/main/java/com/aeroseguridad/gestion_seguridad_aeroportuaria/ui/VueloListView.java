@@ -1,5 +1,15 @@
 // RUTA: src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/VueloListView.java
-package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui; // <-- CORRECCIÓN: Paquete original
+package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
@@ -9,13 +19,10 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AerolineaServic
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.NecesidadVueloService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PosicionSeguridadService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.VueloService;
-// Se asume que MainLayout está en el mismo paquete, por lo que no se necesita import.
-
-import com.vaadin.flow.component.AttachEvent;
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
@@ -28,542 +35,315 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Route(value = "vuelos", layout = MainLayout.class)
 @PageTitle("Vuelos | Gestión Seguridad")
 @PermitAll
 public class VueloListView extends VerticalLayout {
 
+    // --- Services ---
     private final VueloService vueloService;
     private final AerolineaService aerolineaService;
     private final NecesidadVueloService necesidadService;
     private final PosicionSeguridadService posicionService;
 
+    // --- UI Components ---
     private FlexLayout flightCardContainer;
-    private TextField filterText;
-    private DatePicker fechaInicioFiltro;
-    private DatePicker fechaFinFiltro;
-    private Button addVueloButton;
     private VueloForm formVuelo;
-
-    private Div rightPanel;
-    private H4 tituloNecesidades;
-    private Button addNecesidadButton;
-    private Grid<NecesidadVuelo> gridNecesidades;
     private NecesidadVueloForm formNecesidadDialog;
 
-    private Vuelo vueloSeleccionado;
-    private HorizontalLayout toolbar;
-    private SplitLayout splitLayout;
+    // --- Filter Components ---
+    private TextField filterText = new TextField("Buscar por Nº Vuelo, Origen, Destino...");
+    private DatePicker fechaInicioFiltro = new DatePicker("Desde");
+    private DatePicker fechaFinFiltro = new DatePicker("Hasta");
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @Autowired
     public VueloListView(VueloService vueloService, AerolineaService aerolineaService,
-            NecesidadVueloService necesidadService, PosicionSeguridadService posicionService) {
+                         NecesidadVueloService necesidadService, PosicionSeguridadService posicionService) {
         this.vueloService = vueloService;
         this.aerolineaService = aerolineaService;
         this.necesidadService = necesidadService;
         this.posicionService = posicionService;
         addClassName("vuelo-list-view");
         setSizeFull();
+        setPadding(false);
     }
 
     @PostConstruct
     private void initLayout() {
-        try {
-            createFlightCardContainer();
-            createToolbar();
-            createGridNecesidades();
-            createFormVuelo();
-            createFormNecesidadDialog();
-            createRightPanel();
+        createFlightCardContainer();
+        createFormVuelo();
+        createFormNecesidadDialog();
 
-            if (formVuelo == null || formNecesidadDialog == null) {
-                throw new IllegalStateException("Error crítico: Uno o más formularios no pudieron ser instanciados.");
-            }
+        HorizontalLayout headerBar = createHeaderBar();
+        Button fab = createFab();
 
-            splitLayout = new SplitLayout(flightCardContainer, rightPanel);
-            splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-            splitLayout.setSplitterPosition(65);
-            splitLayout.setSizeFull();
-            splitLayout.addClassName("vuelo-split-layout");
+        Div contentWrapper = new Div(flightCardContainer);
+        contentWrapper.setSizeFull();
+        contentWrapper.getStyle().set("overflow", "auto");
+        
+        add(headerBar, contentWrapper, fab);
+        setDefaultDateFilters();
+        updateListVuelos();
+    }
+    
+    private HorizontalLayout createHeaderBar() {
+        H2 title = new H2("Gestión de Vuelos");
+        title.getStyle().set("font-size", "var(--lumo-font-size-xxl)").set("margin", "0");
 
-            // --- Encabezado Mejorado
-            H2 header = new H2("Gestión de Vuelos");
-            header.getStyle().set("margin-top", "var(--lumo-space-m)");
-            header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
+        Button filterButton = new Button("Filtros", VaadinIcon.FILTER.create());
+        filterButton.addClickListener(e -> openFiltersDialog());
 
-            add(header, toolbar, splitLayout);
-            setDefaultDateFilters();
+        HorizontalLayout headerBar = new HorizontalLayout(title, filterButton);
+        headerBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        headerBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        headerBar.setWidthFull();
+        headerBar.getStyle().set("padding", "var(--lumo-space-m)");
+        headerBar.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        return headerBar;
+    }
+
+    private Button createFab() {
+        Button fab = new Button(VaadinIcon.PLUS.create());
+        fab.addClassName("fab");
+        fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        fab.setAriaLabel("Añadir nuevo vuelo");
+        fab.addClickListener(e -> openVueloEditorDialog(new Vuelo()));
+        return fab;
+    }
+
+    private void openFiltersDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Filtrar Vuelos");
+
+        filterText.setPlaceholder("Buscar...");
+        filterText.setClearButtonVisible(true);
+        filterText.setValueChangeMode(ValueChangeMode.LAZY);
+
+        fechaInicioFiltro.setClearButtonVisible(true);
+        fechaFinFiltro.setClearButtonVisible(true);
+
+        dialog.add(new VerticalLayout(filterText, fechaInicioFiltro, fechaFinFiltro));
+
+        Button applyButton = new Button("Aplicar", e -> {
             updateListVuelos();
-            closeEditorVuelo();
-
-            
-
-        } catch (Exception e) {
-            System.err.println("!!! FATAL ERROR during VueloListView initLayout: " + e.getMessage());
-            e.printStackTrace();
-            removeAll();
-            add(new H4("Error crítico al inicializar la vista de Vuelos."));
-        }
+            dialog.close();
+        });
+        applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        Button clearButton = new Button("Limpiar", e -> {
+            filterText.clear();
+            fechaInicioFiltro.clear();
+            fechaFinFiltro.clear();
+            updateListVuelos();
+            dialog.close();
+        });
+        dialog.getFooter().add(clearButton, applyButton);
+        dialog.open();
     }
 
-    @Override
-    protected void onAttach(AttachEvent attachEvent) {
-        super.onAttach(attachEvent);
-        UI ui = attachEvent.getUI();
-        ui.getPage().retrieveExtendedClientDetails(details -> {
-            updateLayoutForWidth(details.getBodyClientWidth());
-        });
-        ui.getPage().addBrowserWindowResizeListener(event -> {
-            updateLayoutForWidth(event.getWidth());
-        });
-    }
+    private void openVueloEditorDialog(Vuelo vuelo) {
+        if (formVuelo == null) return;
 
-    private void updateLayoutForWidth(int width) {
-        if (splitLayout != null) {
-            if (width < 800) {
-                splitLayout.setOrientation(SplitLayout.Orientation.VERTICAL);
-                splitLayout.setSplitterPosition(50);
-            } else {
-                splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-                splitLayout.setSplitterPosition(65);
+        Dialog editorDialog = new Dialog();
+        editorDialog.setWidth("80vw");
+        editorDialog.setMaxWidth("1000px");
+        editorDialog.setDraggable(true);
+
+        // Header
+        H2 title = new H2(vuelo.getIdVuelo() == null ? "Nuevo Vuelo" : "Editar Vuelo");
+        Button closeButton = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> editorDialog.close());
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        HorizontalLayout dialogHeader = new HorizontalLayout(title, closeButton);
+        dialogHeader.setFlexGrow(1, title);
+        dialogHeader.setAlignItems(FlexComponent.Alignment.CENTER);
+        editorDialog.getHeader().add(dialogHeader);
+
+        // Contenido (Formulario de Vuelo + Grid de Necesidades)
+        formVuelo.setVuelo(vuelo);
+        VerticalLayout editorContent = createEditorContent(vuelo);
+        editorDialog.add(editorContent);
+
+        // Listeners
+        formVuelo.addListener(VueloForm.SaveEvent.class, event -> {
+            if (saveVuelo(event)) {
+                editorDialog.close();
             }
-        }
+        });
+        formVuelo.addListener(VueloForm.DeleteEvent.class, event -> {
+            deleteVuelo(event);
+            editorDialog.close();
+        });
+        formVuelo.addListener(VueloForm.CloseEvent.class, e -> editorDialog.close());
+        
+        editorDialog.open();
     }
 
-    private void createRightPanel() {
-        if (formVuelo == null) {
-            formVuelo = new VueloForm(Collections.emptyList());
-            Notification.show("Error crítico: Formulario de Vuelo no disponible.", 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        }
-
-        tituloNecesidades = new H4("Necesidades de Seguridad");
+    private VerticalLayout createEditorContent(Vuelo vuelo) {
+        Grid<NecesidadVuelo> gridNecesidades = createGridNecesidades();
+        
+        H4 tituloNecesidades = new H4("Necesidades de Seguridad");
         tituloNecesidades.addClassName("necesidades-titulo");
 
-        addNecesidadButton = new Button("Añadir Necesidad", VaadinIcon.PLUS_CIRCLE_O.create());
+        Button addNecesidadButton = new Button("Añadir Necesidad", VaadinIcon.PLUS_CIRCLE_O.create());
         addNecesidadButton.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
-        addNecesidadButton.addClickListener(click -> addNecesidad());
-
-        if (gridNecesidades == null) {
-            gridNecesidades = new Grid<>(NecesidadVuelo.class, false);
-            Notification.show("Error crítico: Grid de Necesidades no disponible.", 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        }
+        addNecesidadButton.addClickListener(click -> addNecesidad(vuelo, gridNecesidades));
+        addNecesidadButton.setEnabled(vuelo.getIdVuelo() != null); // Solo habilitado para vuelos guardados
 
         VerticalLayout needsLayout = new VerticalLayout(tituloNecesidades, addNecesidadButton, gridNecesidades);
         needsLayout.setPadding(false);
         needsLayout.setSpacing(true);
         needsLayout.addClassName("necesidades-section");
-        needsLayout.setWidthFull();
-        needsLayout.setAlignItems(Alignment.STRETCH);
 
-        rightPanel = new Div();
-        rightPanel.add(formVuelo, needsLayout);
-        rightPanel.addClassName("right-panel");
-        rightPanel.getElement().getStyle().set("display", "flex");
-        rightPanel.getElement().getStyle().set("flex-direction", "column");
-        rightPanel.setVisible(false);
+        if (vuelo.getIdVuelo() != null) {
+            gridNecesidades.setItems(necesidadService.findByVueloId(vuelo.getIdVuelo()));
+        }
+
+        return new VerticalLayout(formVuelo, needsLayout);
     }
-
-    private void createToolbar() {
-        filterText = new TextField();
-        filterText.setPlaceholder("Buscar por nº vuelo, origen, destino...");
-        filterText.setClearButtonVisible(true);
-        filterText.setValueChangeMode(ValueChangeMode.LAZY);
-        filterText.addValueChangeListener(e -> updateListVuelos());
-        filterText.setPrefixComponent(VaadinIcon.SEARCH.create());
-
-        fechaInicioFiltro = new DatePicker("Desde");
-        fechaFinFiltro = new DatePicker("Hasta");
-        fechaInicioFiltro.setClearButtonVisible(true);
-        fechaFinFiltro.setClearButtonVisible(true);
-        fechaInicioFiltro.addValueChangeListener(e -> updateListVuelos());
-        fechaFinFiltro.addValueChangeListener(e -> updateListVuelos());
-
-        addVueloButton = new Button("Nuevo Vuelo", VaadinIcon.PLUS_CIRCLE.create());
-        addVueloButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addVueloButton.addClickListener(click -> addVuelo());
-
-        toolbar = new HorizontalLayout(filterText, fechaInicioFiltro, fechaFinFiltro, addVueloButton);
-        toolbar.addClassName("vuelo-toolbar");
-        toolbar.setAlignItems(Alignment.BASELINE);
-        toolbar.setWidthFull();
-        toolbar.setFlexGrow(1, filterText);
-        toolbar.setSpacing(true);
-        toolbar.getStyle().set("flex-wrap", "wrap");
-    }
-
+    
     private void createFlightCardContainer() {
         flightCardContainer = new FlexLayout();
         flightCardContainer.addClassName("vuelo-card-container");
-        flightCardContainer.setFlexWrap(FlexLayout.FlexWrap.WRAP);
-        flightCardContainer.setAlignItems(FlexComponent.Alignment.STRETCH);
-        flightCardContainer.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
-        flightCardContainer.getStyle().set("overflow-y", "auto");
-        flightCardContainer.getStyle().set("padding", "var(--lumo-space-m)");
-        flightCardContainer.setSizeFull();
-    }
-
-    public static String formatDateTimeStatic(LocalDateTime dateTime) {
-        return dateTime == null ? "N/A" : dateTime.format(DT_FORMATTER);
     }
 
     private void createFormVuelo() {
         try {
             List<Aerolinea> aerolineas = aerolineaService.findAll();
             formVuelo = new VueloForm(aerolineas);
-            formVuelo.setWidth("100%");
-            formVuelo.addListener(VueloForm.SaveEvent.class, this::saveVuelo);
-            formVuelo.addListener(VueloForm.DeleteEvent.class, this::deleteVuelo);
-            formVuelo.addListener(VueloForm.CloseEvent.class, e -> closeEditorVuelo());
             formVuelo.addClassName("vuelo-form-panel");
         } catch (Exception e) {
             formVuelo = null;
-            System.err.println("!!! ERROR creando VueloForm: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
-    private void createGridNecesidades() {
-        gridNecesidades = new Grid<>(NecesidadVuelo.class, false);
-        gridNecesidades.addClassName("necesidad-grid");
-        gridNecesidades.setWidthFull();
-        gridNecesidades.setMinHeight("150px");
-
-        gridNecesidades.addColumn(nec -> nec.getPosicion() != null ? nec.getPosicion().getNombrePosicion() : "N/A")
-                .setHeader("Posición").setSortable(true).setAutoWidth(true).setResizable(true);
-        gridNecesidades.addColumn(NecesidadVuelo::getCantidadAgentes)
-                .setHeader("Cant.").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END)
-                .setAutoWidth(true).setResizable(true).setFlexGrow(0);
-        gridNecesidades.addColumn(nec -> formatDateTimeStatic(nec.getInicioCobertura()))
-                .setHeader("Inicio Cob.").setSortable(true).setAutoWidth(true).setResizable(true);
-        gridNecesidades.addColumn(nec -> formatDateTimeStatic(nec.getFinCobertura()))
-                .setHeader("Fin Cob.").setSortable(true).setAutoWidth(true).setResizable(true);
-
-        gridNecesidades.addColumn(new ComponentRenderer<>(necesidad -> {
-            Button editBtn = new Button(VaadinIcon.EDIT.create());
-            editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON,
-                    ButtonVariant.LUMO_TERTIARY_INLINE);
-            editBtn.addClickListener(e -> editNecesidad(necesidad));
-            editBtn.setTooltipText("Editar Necesidad");
-
-            Button deleteBtn = new Button(VaadinIcon.TRASH.create());
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR,
-                    ButtonVariant.LUMO_TERTIARY_INLINE);
-            deleteBtn.addClickListener(e -> deleteNecesidad(necesidad));
-            deleteBtn.setTooltipText("Eliminar Necesidad");
-
-            HorizontalLayout buttons = new HorizontalLayout(editBtn, deleteBtn);
-            buttons.setSpacing(false);
-            buttons.setPadding(false);
-            buttons.getThemeList().add("spacing-xs");
-            return buttons;
-        })).setHeader("Acciones").setFlexGrow(0).setWidth("100px")
-                .setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.CENTER);
+    private Grid<NecesidadVuelo> createGridNecesidades() {
+        Grid<NecesidadVuelo> grid = new Grid<>(NecesidadVuelo.class, false);
+        grid.addClassName("necesidad-grid");
+        grid.addColumn(nec -> nec.getPosicion() != null ? nec.getPosicion().getNombrePosicion() : "N/A").setHeader("Posición").setSortable(true);
+        grid.addColumn(NecesidadVuelo::getCantidadAgentes).setHeader("Cant.").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+        grid.addColumn(nec -> VueloListView.formatDateTimeStatic(nec.getInicioCobertura())).setHeader("Inicio Cob.");
+        grid.addColumn(nec -> VueloListView.formatDateTimeStatic(nec.getFinCobertura())).setHeader("Fin Cob.");
+        grid.addColumn(new ComponentRenderer<>(necesidad -> {
+            Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> editNecesidad(necesidad, grid));
+            editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY_INLINE);
+            Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> deleteNecesidad(necesidad, grid));
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
+            return new HorizontalLayout(editBtn, deleteBtn);
+        })).setHeader("Acciones");
+        return grid;
     }
 
     private void createFormNecesidadDialog() {
         try {
             List<PosicionSeguridad> posicionesActivas = posicionService.findAllActive();
-            if (CollectionUtils.isEmpty(posicionesActivas)) {
-                System.err.println("WARN: No hay posiciones de seguridad ACTIVAS.");
-            }
             formNecesidadDialog = new NecesidadVueloForm(posicionesActivas);
-            formNecesidadDialog.addListener(NecesidadVueloForm.SaveEvent.class, this::saveNecesidad);
-            formNecesidadDialog.addListener(NecesidadVueloForm.CloseEvent.class, e -> formNecesidadDialog.close());
         } catch (Exception e) {
             formNecesidadDialog = null;
-            System.err.println("!!! ERROR creando NecesidadVueloForm: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
     private void updateListVuelos() {
-        if (flightCardContainer == null || fechaInicioFiltro == null || fechaFinFiltro == null || filterText == null) {
-            if (flightCardContainer != null)
-                flightCardContainer.removeAll();
-            return;
-        }
-
         LocalDate fechaInicio = fechaInicioFiltro.getValue();
         LocalDate fechaFin = fechaFinFiltro.getValue();
-        String textoFiltro = filterText.getValue();
         List<Vuelo> vuelos;
-
         try {
             if (fechaInicio != null && fechaFin != null) {
                 if (fechaFin.isBefore(fechaInicio)) {
-                    Notification
-                            .show("La 'Fecha Hasta' debe ser posterior o igual a la 'Fecha Desde'.", 3000,
-                                    Notification.Position.BOTTOM_START)
-                            .addThemeVariants(NotificationVariant.LUMO_WARNING);
                     vuelos = Collections.emptyList();
+                    Notification.show("La 'Fecha Hasta' debe ser posterior o igual a la 'Fecha Desde'.").addThemeVariants(NotificationVariant.LUMO_WARNING);
                 } else {
-                    LocalDateTime inicioRango = fechaInicio.atStartOfDay();
-                    LocalDateTime finRango = fechaFin.atTime(LocalTime.MAX);
-                    vuelos = vueloService.findVuelosByDateRangeAndNumeroVueloForView(inicioRango, finRango,
-                            textoFiltro);
+                    vuelos = vueloService.findVuelosByDateRangeAndNumeroVueloForView(fechaInicio.atStartOfDay(), fechaFin.atTime(LocalTime.MAX), filterText.getValue());
                 }
-            } else if (StringUtils.hasText(textoFiltro)) {
-                vuelos = vueloService.findByNumeroVueloForView(textoFiltro);
             } else {
-                vuelos = vueloService.findAllForView();
+                 vuelos = vueloService.findVuelosByDateRangeAndNumeroVueloForView(null, null, filterText.getValue());
             }
         } catch (Exception e) {
-            Notification.show("Error al cargar vuelos: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
             vuelos = Collections.emptyList();
-            e.printStackTrace();
         }
 
         flightCardContainer.removeAll();
         if (CollectionUtils.isEmpty(vuelos)) {
-            Span mensajeVacio = new Span("No se encontraron vuelos para los criterios seleccionados.");
-            mensajeVacio.addClassName("empty-flight-list-message");
-            flightCardContainer.add(mensajeVacio);
-            flightCardContainer.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-            flightCardContainer.setAlignItems(FlexComponent.Alignment.CENTER);
+            flightCardContainer.add(new Span("No se encontraron vuelos para los criterios seleccionados."));
         } else {
-            flightCardContainer.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
-            flightCardContainer.setAlignItems(FlexComponent.Alignment.STRETCH);
-            vuelos.forEach(vuelo -> flightCardContainer.add(new VueloCard(vuelo, necesidadService, this)));
+            vuelos.forEach(vuelo -> {
+                VueloCard card = new VueloCard(vuelo, necesidadService);
+                card.addCardClickListener(e -> openVueloEditorDialog(e.getVuelo()));
+                flightCardContainer.add(card);
+            });
         }
     }
 
-    private void updateNecesidadesGrid(Vuelo vuelo) {
-        if (gridNecesidades == null)
-            return;
-        if (vuelo != null && vuelo.getIdVuelo() != null) {
-            try {
-                List<NecesidadVuelo> necesidades = necesidadService.findByVueloId(vuelo.getIdVuelo());
-                gridNecesidades.setItems(necesidades);
-            } catch (EntityNotFoundException enf) {
-                Notification
-                        .show("Error: El vuelo seleccionado ya no existe.", 3000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                gridNecesidades.setItems(Collections.emptyList());
-                closeEditorVuelo();
-            } catch (Exception e) {
-                Notification.show("Error al cargar necesidades: " + e.getMessage(), 5000,
-                        Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                gridNecesidades.setItems(Collections.emptyList());
-                e.printStackTrace();
-            }
-        } else {
-            gridNecesidades.setItems(Collections.emptyList());
-        }
-    }
-
-    private void setDefaultDateFilters() {
-        // Sin valores por defecto
-    }
-
-    private void addVuelo() {
-        if (formVuelo == null) {
-            Notification.show("Error: Formulario de Vuelo no está disponible.", 3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            return;
-        }
-        this.vueloSeleccionado = null;
-        editVuelo(new Vuelo());
-    }
-
-    public void editVuelo(Vuelo vuelo) {
-        if (formVuelo == null || rightPanel == null) {
-            Notification.show("Error: Componentes de edición no disponibles.", 3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            return;
-        }
-        this.vueloSeleccionado = vuelo;
-
-        if (vuelo == null) {
-            closeEditorVuelo();
-        } else {
-            formVuelo.setVuelo(vuelo);
-            updateNecesidadesGrid(vuelo);
-            rightPanel.setVisible(true);
-        }
-    }
-
-    public void refreshSelectedVueloCard() {
-        if (vueloSeleccionado != null) {
-            updateListVuelos();
-        }
-    }
-
-    private void addNecesidad() {
-        if (formNecesidadDialog == null) {
-            Notification.show("Error: Formulario de Necesidad no inicializado.")
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            return;
-        }
-        if (this.vueloSeleccionado == null || this.vueloSeleccionado.getIdVuelo() == null) {
-            Notification.show("Seleccione y guarde un vuelo primero.", 3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_WARNING);
-            return;
-        }
+    private void addNecesidad(Vuelo vuelo, Grid<NecesidadVuelo> grid) {
+        if (formNecesidadDialog == null) return;
         NecesidadVuelo nuevaNecesidad = new NecesidadVuelo();
-        formNecesidadDialog.setNecesidad(nuevaNecesidad, this.vueloSeleccionado);
+        formNecesidadDialog.setNecesidad(nuevaNecesidad, vuelo);
+        formNecesidadDialog.addListener(NecesidadVueloForm.SaveEvent.class, e -> saveNecesidad(e, grid));
         formNecesidadDialog.open();
     }
 
-    private void editNecesidad(NecesidadVuelo necesidad) {
-        if (formNecesidadDialog == null || necesidad == null)
-            return;
-        Vuelo vueloAsociado = this.vueloSeleccionado;
-        if (vueloAsociado == null || necesidad.getVuelo() == null
-                || !necesidad.getVuelo().getIdVuelo().equals(vueloAsociado.getIdVuelo())) {
-            if (necesidad.getVuelo() != null) {
-                vueloAsociado = necesidad.getVuelo();
-            } else {
-                Notification.show("Error: No se pudo determinar el vuelo asociado.", 3000, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                return;
-            }
-        }
-        formNecesidadDialog.setNecesidad(necesidad, vueloAsociado);
+    private void editNecesidad(NecesidadVuelo necesidad, Grid<NecesidadVuelo> grid) {
+        if (formNecesidadDialog == null || necesidad == null) return;
+        formNecesidadDialog.setNecesidad(necesidad, necesidad.getVuelo());
+        formNecesidadDialog.addListener(NecesidadVueloForm.SaveEvent.class, e -> saveNecesidad(e, grid));
         formNecesidadDialog.open();
     }
 
-    private void saveNecesidad(NecesidadVueloForm.SaveEvent event) {
+    private void saveNecesidad(NecesidadVueloForm.SaveEvent event, Grid<NecesidadVuelo> grid) {
         try {
             necesidadService.save(event.getNecesidad());
-            if (this.vueloSeleccionado != null
-                    && event.getNecesidad().getVuelo().getIdVuelo().equals(this.vueloSeleccionado.getIdVuelo())) {
-                updateNecesidadesGrid(this.vueloSeleccionado);
-                refreshSelectedVueloCard();
-            } else {
-                updateListVuelos();
-            }
-            Notification.show("Necesidad guardada.", 1500, Notification.Position.BOTTOM_START)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            grid.setItems(necesidadService.findByVueloId(event.getNecesidad().getVuelo().getIdVuelo()));
+            updateListVuelos(); // Para refrescar contador de necesidades en la tarjeta
             formNecesidadDialog.close();
-        } catch (ConstraintViolationException e) {
-            String violations = e.getConstraintViolations().stream().map(ConstraintViolation::getMessage).distinct()
-                    .collect(Collectors.joining("; "));
-            String errorMsg = violations.contains("posterior a la hora de inicio")
-                    ? "Error: La hora de fin de cobertura debe ser posterior a la de inicio."
-                    : "Error de validación: " + violations;
-            Notification.show(errorMsg, 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        } catch (DataIntegrityViolationException e) {
-            Notification.show("Error: Ya existe una necesidad para esta posición en este vuelo.", 5000,
-                    Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (Exception e) {
-            Notification.show("Error inesperado al guardar necesidad: " + e.getMessage(), 5000,
-                    Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
+            Notification.show("Error al guardar necesidad: " + e.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
-    private void deleteNecesidad(NecesidadVuelo necesidad) {
+    private void deleteNecesidad(NecesidadVuelo necesidad, Grid<NecesidadVuelo> grid) {
         if (necesidad != null && necesidad.getIdNecesidad() != null) {
-            try {
-                Long idVueloAfectado = necesidad.getVuelo().getIdVuelo();
-                necesidadService.deleteById(necesidad.getIdNecesidad());
-
-                if (this.vueloSeleccionado != null && this.vueloSeleccionado.getIdVuelo().equals(idVueloAfectado)) {
-                    updateNecesidadesGrid(this.vueloSeleccionado);
-                    refreshSelectedVueloCard();
-                } else {
-                    updateListVuelos();
-                }
-                Notification.show("Necesidad eliminada.", 1500, Notification.Position.BOTTOM_START)
-                        .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-            } catch (Exception e) {
-                Notification.show("Error al eliminar necesidad: " + e.getMessage(), 5000,
-                        Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                e.printStackTrace();
-            }
+            Vuelo vueloAfectado = necesidad.getVuelo();
+            necesidadService.deleteById(necesidad.getIdNecesidad());
+            grid.setItems(necesidadService.findByVueloId(vueloAfectado.getIdVuelo()));
+            updateListVuelos(); // Para refrescar contador
         }
     }
-
-    private void saveVuelo(VueloForm.SaveEvent event) {
+    
+    private boolean saveVuelo(VueloForm.SaveEvent event) {
         try {
-            Vuelo vueloGuardado = vueloService.save(event.getVuelo());
+            vueloService.save(event.getVuelo());
             updateListVuelos();
-            editVuelo(vueloGuardado);
-            Notification.show("Vuelo guardado.", 2000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-        } catch (ConstraintViolationException e) {
-            String violations = e.getConstraintViolations().stream().map(ConstraintViolation::getMessage).distinct()
-                    .collect(Collectors.joining("; "));
-            Notification.show("Error de validación: " + violations, 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        } catch (DataIntegrityViolationException e) {
-            String errorMsg = "Error de integridad de datos.";
-            if (e.getMostSpecificCause().getMessage().toLowerCase().contains("vuelos_numero_vuelo_key")) {
-                errorMsg = "Error: El número de vuelo '" + event.getVuelo().getNumeroVuelo() + "' ya existe.";
-                if (formVuelo != null && formVuelo.numeroVuelo != null)
-                    formVuelo.numeroVuelo.setInvalid(true);
-            }
-            Notification.show(errorMsg, 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            Notification.show("Vuelo guardado.", 2000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            return true;
         } catch (Exception e) {
-            Notification.show("Error inesperado al guardar vuelo: " + e.getMessage(), 5000,
-                    Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
+            Notification.show("Error inesperado al guardar vuelo: " + e.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return false;
         }
     }
 
     private void deleteVuelo(VueloForm.DeleteEvent event) {
-        Vuelo vueloAEliminar = event.getVuelo();
-        if (formVuelo == null || vueloAEliminar == null || vueloAEliminar.getIdVuelo() == null) {
-            Notification
-                    .show("No se puede eliminar un vuelo no seleccionado.", 3000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_WARNING);
-            return;
-        }
-        try {
-            vueloService.deleteById(vueloAEliminar.getIdVuelo());
+        if (event.getVuelo() != null && event.getVuelo().getIdVuelo() != null) {
+            vueloService.deleteById(event.getVuelo().getIdVuelo());
             updateListVuelos();
-            closeEditorVuelo();
-            Notification.show("Vuelo eliminado.", 2000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-        } catch (DataIntegrityViolationException e) {
-            Notification.show("Error: No se pudo eliminar el vuelo. Verifique dependencias.", 5000,
-                    Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
-        } catch (Exception e) {
-            Notification.show("Error al eliminar vuelo: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
         }
     }
 
-    private void closeEditorVuelo() {
-        if (formVuelo != null) {
-            formVuelo.setVuelo(null);
-        }
-        if (rightPanel != null) {
-            rightPanel.setVisible(false);
-        }
-        this.vueloSeleccionado = null;
+    private void setDefaultDateFilters() {
+        fechaInicioFiltro.setValue(LocalDate.now().minusDays(7));
+        fechaFinFiltro.setValue(LocalDate.now().plusDays(7));
+    }
+
+    public static String formatDateTimeStatic(LocalDateTime dateTime) {
+        return dateTime == null ? "" : dateTime.format(DT_FORMATTER);
     }
 }

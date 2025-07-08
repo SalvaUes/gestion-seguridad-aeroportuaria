@@ -5,18 +5,19 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Turno;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.TurnoService;
-import com.vaadin.flow.component.AttachEvent;
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -31,11 +32,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 
 @Route(value = "turnos", layout = MainLayout.class)
 @PageTitle("Turnos | Gestión Seguridad")
@@ -45,14 +44,13 @@ public class TurnoListView extends VerticalLayout {
     private final TurnoService turnoService;
     private final AgenteService agenteService;
 
-    private Grid<Turno> grid;
-    private DatePicker fechaInicioFiltro;
-    private DatePicker fechaFinFiltro;
-    private Button addTurnoButton;
+    private Grid<Turno> grid = new Grid<>(Turno.class, false);
     private TurnoForm form;
-    private SplitLayout splitLayout;
-    private HorizontalLayout toolbar;
     private ListDataProvider<Turno> dataProvider;
+
+    // Componentes de Filtro
+    private DatePicker fechaInicioFiltro = new DatePicker("Fecha Desde");
+    private DatePicker fechaFinFiltro = new DatePicker("Fecha Hasta");
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -62,97 +60,121 @@ public class TurnoListView extends VerticalLayout {
         this.turnoService = turnoService;
         addClassName("turno-list-view");
         setSizeFull();
+        setPadding(false);
     }
 
     @PostConstruct
     private void initLayout() {
-        try {
-            dataProvider = new ListDataProvider<>(new ArrayList<>());
-            createGrid();
-            createToolbar();
-            createForm();
+        createGrid();
+        createForm();
 
-            if (this.form == null) {
-                throw new IllegalStateException("Error crítico: TurnoForm no pudo ser instanciado.");
-            }
+        HorizontalLayout headerBar = createHeaderBar();
+        Button fab = createFab();
 
-            // --- MEJORA: Encabezado de la Vista ---
-            H2 header = new H2("Gestión de Turnos");
-            header.getStyle().set("margin-top", "var(--lumo-space-m)");
-            header.getStyle().set("font-size", "var(--lumo-font-size-xxl)");
+        Div contentWrapper = new Div(grid);
+        contentWrapper.setSizeFull();
+        contentWrapper.getStyle().set("overflow", "auto");
+        contentWrapper.getStyle().set("padding", "0 var(--lumo-space-m)");
 
-            splitLayout = new SplitLayout(grid, form);
-            splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-            splitLayout.setSplitterPosition(75);
-            splitLayout.setSizeFull();
-
-            add(header, toolbar, splitLayout);
-
-            updateList();
-            closeEditor();
-
-        } catch (Exception e) {
-            System.err.println("!!! FATAL ERROR during TurnoListView initLayout: " + e.getMessage());
-            e.printStackTrace();
-            removeAll();
-            add(new HorizontalLayout(new Notification(
-                "Error al inicializar la vista de Turnos.", 0, Notification.Position.MIDDLE)
-            ));
-        }
+        add(headerBar, contentWrapper, fab);
+        updateList(); // Carga inicial sin filtros
     }
 
-    // --- MEJORA: Lógica de Responsividad ---
-    @Override
-    protected void onAttach(AttachEvent attachEvent) {
-        super.onAttach(attachEvent);
-        UI ui = attachEvent.getUI();
-        ui.getPage().retrieveExtendedClientDetails(details -> {
-            if (splitLayout != null) {
-                updateLayoutForWidth(details.getBodyClientWidth());
-            }
-        });
-        ui.getPage().addBrowserWindowResizeListener(event -> {
-            if (splitLayout != null) {
-                updateLayoutForWidth(event.getWidth());
-            }
-        });
+    private HorizontalLayout createHeaderBar() {
+        H2 title = new H2("Gestión de Turnos");
+        title.getStyle().set("font-size", "var(--lumo-font-size-xxl)").set("margin", "0");
+
+        Button filterButton = new Button("Filtros", VaadinIcon.FILTER.create());
+        filterButton.addClickListener(e -> openFiltersDialog());
+
+        HorizontalLayout headerBar = new HorizontalLayout(title, filterButton);
+        headerBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        headerBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        headerBar.setWidthFull();
+        headerBar.getStyle().set("padding", "var(--lumo-space-m)");
+        headerBar.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+
+        return headerBar;
     }
 
-    private void updateLayoutForWidth(int width) {
-        if (width < 800) {
-            splitLayout.setOrientation(SplitLayout.Orientation.VERTICAL);
-        } else {
-            splitLayout.setOrientation(SplitLayout.Orientation.HORIZONTAL);
-        }
+    private Button createFab() {
+        Button fab = new Button(VaadinIcon.PLUS.create());
+        fab.addClassName("fab");
+        fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        fab.setAriaLabel("Añadir nuevo turno");
+        fab.addClickListener(e -> openTurnoFormDialog(new Turno()));
+        return fab;
     }
-    // --- FIN Lógica de Responsividad ---
 
-
-    private void createToolbar() {
-        fechaInicioFiltro = new DatePicker("Fecha Desde");
-        fechaFinFiltro = new DatePicker("Fecha Hasta");
-        addTurnoButton = new Button("Nuevo Turno", VaadinIcon.PLUS.create());
-
+    private void openFiltersDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Filtrar Turnos por Fecha");
+        
         fechaInicioFiltro.setClearButtonVisible(true);
         fechaFinFiltro.setClearButtonVisible(true);
 
-        fechaInicioFiltro.addValueChangeListener(e -> updateList());
-        fechaFinFiltro.addValueChangeListener(e -> updateList());
-        addTurnoButton.addClickListener(click -> addTurno());
+        dialog.add(new VerticalLayout(fechaInicioFiltro, fechaFinFiltro));
 
-        toolbar = new HorizontalLayout(fechaInicioFiltro, fechaFinFiltro, addTurnoButton);
-        toolbar.addClassName("toolbar");
-        toolbar.setAlignItems(Alignment.BASELINE);
-        // --- MEJORA: Responsividad del Toolbar ---
-        toolbar.getStyle().set("flex-wrap", "wrap");
+        Button applyButton = new Button("Aplicar", e -> {
+            updateList();
+            dialog.close();
+        });
+        applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button clearButton = new Button("Limpiar", e -> {
+            fechaInicioFiltro.clear();
+            fechaFinFiltro.clear();
+            updateList();
+            dialog.close();
+        });
+        dialog.getFooter().add(clearButton, applyButton);
+        dialog.open();
+    }
+
+    private void openTurnoFormDialog(Turno turno) {
+        if (form == null) {
+            Notification.show("El formulario no está disponible.", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        Dialog dialog = new Dialog();
+        dialog.setCloseOnEsc(false);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setDraggable(true);
+        dialog.setResizable(true);
+
+        H2 title = new H2(turno.getIdTurno() == null ? "Nuevo Turno" : "Editar Turno");
+        Button closeButton = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> dialog.close());
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        HorizontalLayout dialogHeader = new HorizontalLayout(title, closeButton);
+        dialogHeader.setFlexGrow(1, title);
+        dialogHeader.setAlignItems(FlexComponent.Alignment.CENTER);
+        dialogHeader.getStyle().set("padding", "var(--lumo-space-m)");
+        dialog.getHeader().add(dialogHeader);
+
+        form.setTurno(turno);
+        dialog.add(form);
+
+        form.addListener(TurnoForm.SaveEvent.class, event -> {
+            boolean success = saveTurno(event);
+            if (success) {
+                dialog.close();
+            }
+        });
+        form.addListener(TurnoForm.DeleteEvent.class, event -> {
+            deleteTurno(event);
+            dialog.close();
+        });
+        form.addListener(TurnoForm.CloseEvent.class, event -> dialog.close());
+
+        dialog.open();
     }
 
     private void createGrid() {
         grid = new Grid<>(Turno.class, false);
         grid.addClassName("turno-grid");
         grid.setSizeFull();
-        grid.setDataProvider(dataProvider);
-
+        
         grid.addColumn(turno -> {
             Agente agente = turno.getAgente();
             return agente != null ? agente.getApellido() + ", " + agente.getNombre() : "N/A";
@@ -163,38 +185,22 @@ public class TurnoListView extends VerticalLayout {
         grid.addColumn(Turno::getEstadoTurno).setHeader("Estado").setSortable(true);
 
         grid.getColumns().forEach(col -> col.setAutoWidth(true).setResizable(true));
-        grid.asSingleSelect().addValueChangeListener(event -> editTurno(event.getValue()));
-    }
-
-    private String formatDateTime(LocalDateTime dateTime) {
-        return dateTime == null ? "" : dateTime.format(DT_FORMATTER);
+        grid.asSingleSelect().addValueChangeListener(event -> openTurnoFormDialog(event.getValue()));
     }
 
     private void createForm() {
         try {
-            if (agenteService == null) {
-                throw new IllegalStateException("AgenteService no inyectado");
-            }
             List<Agente> agentesActivos = agenteService.findAllActiveForView("");
             this.form = new TurnoForm(agentesActivos);
-            this.form.setWidth("400px");
-            this.form.addListener(TurnoForm.SaveEvent.class, this::saveTurno);
-            this.form.addListener(TurnoForm.DeleteEvent.class, this::deleteTurno);
-            this.form.addListener(TurnoForm.CloseEvent.class, e -> closeEditor());
+            this.form.setWidth("100%");
         } catch (Exception e) {
             this.form = null;
-            System.err.println("!!! ERROR during TurnoListView createForm: " + e.getMessage());
+            System.err.println("!!! ERROR creating TurnoForm: " + e.getMessage());
             e.printStackTrace();
-            Notification.show("Error al crear el formulario de turnos.", 0, Notification.Position.MIDDLE)
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
     private void updateList() {
-        if (grid == null || dataProvider == null || fechaInicioFiltro == null || fechaFinFiltro == null) {
-            return;
-        }
-
         LocalDate fechaInicio = fechaInicioFiltro.getValue();
         LocalDate fechaFin = fechaFinFiltro.getValue();
         List<Turno> turnos;
@@ -205,56 +211,24 @@ public class TurnoListView extends VerticalLayout {
                     .addThemeVariants(NotificationVariant.LUMO_WARNING);
                 turnos = Collections.emptyList();
             } else {
-                try {
-                    LocalDateTime inicioRango = fechaInicio.atStartOfDay();
-                    LocalDateTime finRango = fechaFin.atTime(LocalTime.MAX);
-                    turnos = turnoService.findTurnosByDateRange(inicioRango, finRango);
-                } catch (Exception e) {
-                    Notification.show("Error al cargar turnos filtrados: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    turnos = Collections.emptyList();
-                    e.printStackTrace();
-                }
+                LocalDateTime inicioRango = fechaInicio.atStartOfDay();
+                LocalDateTime finRango = fechaFin.atTime(LocalTime.MAX);
+                turnos = turnoService.findTurnosByDateRange(inicioRango, finRango);
             }
         } else {
-            try {
-                turnos = turnoService.findAllTurnosFetchingAgente();
-            } catch (Exception e) {
-                Notification.show("Error al cargar todos los turnos: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-                turnos = Collections.emptyList();
-                e.printStackTrace();
-            }
+            // Carga todos si no hay rango de fechas
+            turnos = turnoService.findAllTurnosFetchingAgente();
         }
-
-        dataProvider.getItems().clear();
-        dataProvider.getItems().addAll(turnos);
-        dataProvider.refreshAll();
+        grid.setItems(turnos);
     }
-
-    private void addTurno() {
-        if (form == null) return;
-        grid.asSingleSelect().clear();
-        editTurno(new Turno());
-    }
-
-    private void editTurno(Turno turno) {
-        if (form == null) return;
-        if (turno == null) {
-            closeEditor();
-        } else {
-            form.setTurno(turno);
-            form.setVisible(true);
-        }
-    }
-
-    private void saveTurno(TurnoForm.SaveEvent event) {
+    
+    private boolean saveTurno(TurnoForm.SaveEvent event) {
         try {
-            Turno turnoGuardado = turnoService.save(event.getTurno());
+            turnoService.save(event.getTurno());
             updateList();
-            closeEditor();
             Notification.show("Turno guardado.", 2000, Notification.Position.BOTTOM_CENTER)
                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            return true;
         } catch (IllegalArgumentException e) {
             Notification.show("Error al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER)
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -277,16 +251,15 @@ public class TurnoListView extends VerticalLayout {
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
             e.printStackTrace();
         }
+        return false;
     }
 
     private void deleteTurno(TurnoForm.DeleteEvent event) {
-        if (form == null) return;
         Turno turnoAEliminar = event.getTurno();
         if (turnoAEliminar != null && turnoAEliminar.getIdTurno() != null) {
             try {
                 turnoService.deleteById(turnoAEliminar.getIdTurno());
                 updateList();
-                closeEditor();
                 Notification.show("Turno eliminado.", 2000, Notification.Position.BOTTOM_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
             } catch (Exception e) {
@@ -300,13 +273,7 @@ public class TurnoListView extends VerticalLayout {
         }
     }
 
-    private void closeEditor() {
-        if (form != null) {
-            form.setTurno(null);
-            form.setVisible(false);
-        }
-        if (grid != null) {
-            grid.asSingleSelect().clear();
-        }
+    private String formatDateTime(LocalDateTime dateTime) {
+        return dateTime == null ? "" : dateTime.format(DT_FORMATTER);
     }
 }

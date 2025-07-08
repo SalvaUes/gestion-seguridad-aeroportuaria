@@ -5,7 +5,6 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
-import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
@@ -14,10 +13,11 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.shared.Registration;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 
-@CssImport("./themes/gestionseguridadaeroportuaria/styles.css")
+
 public class AgenteCard extends VerticalLayout {
 
     private static final String IMAGE_BASE_URL = "agent-photos/";
@@ -26,29 +26,24 @@ public class AgenteCard extends VerticalLayout {
     public AgenteCard(Agente agente) {
         this.agente = agente;
         
-        // Estilos de la tarjeta
-        addClassName("agente-card");
+        addClassName("agente-card"); // Usa la clase CSS para los estilos principales
         setSpacing(false);
         getThemeList().add("spacing-s");
-        getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
-        getStyle().set("border-radius", "var(--lumo-border-radius-m)");
-        getStyle().set("padding", "var(--lumo-space-m)");
-        setWidth("280px");
-        getStyle().set("position", "relative");
+        
+        // --- MEJORA: Ancho Responsivo ---
+        setWidthFull();
+        setMaxWidth("340px");
 
-        // Elementos visuales
+        getStyle().setPosition(Style.Position.RELATIVE);
+
         add(createRolEtiqueta(agente));
         add(createHeaderLayout(agente));
         add(createDetailsLayout(agente));
         setAlignItems(FlexComponent.Alignment.START);
 
-        // CORRECCIÓN CLAVE: Se añade el listener de clic directamente en el constructor
-        // y se dispara un evento personalizado. Esto es más robusto.
         addClickListener(event -> fireEvent(new CardClickEvent(this, this.agente)));
     }
 
-    // El resto de los métodos privados para construir la UI no cambian...
-    // ... (createRolEtiqueta, createHeaderLayout, etc. son los mismos)
     private Span createRolEtiqueta(Agente agente) {
         Span rolEtiqueta = new Span();
         if (agente.getRol() != null) {
@@ -115,7 +110,6 @@ public class AgenteCard extends VerticalLayout {
     }
     
     // --- Sistema de Eventos Personalizado ---
-
     public static class CardClickEvent extends ComponentEvent<AgenteCard> {
         private final Agente agente;
         public CardClickEvent(AgenteCard source, Agente agente) {
@@ -129,7 +123,7 @@ public class AgenteCard extends VerticalLayout {
 
     public Registration addCardClickListener(ComponentEventListener<CardClickEvent> listener) {
         getStyle().set("cursor", "pointer");
-        addClassName("agente-card-hoverable");
+        addClassName("agente-card-hoverable"); // Añade una clase para estilos hover en CSS si se desea
         return addListener(CardClickEvent.class, listener);
     }
 }

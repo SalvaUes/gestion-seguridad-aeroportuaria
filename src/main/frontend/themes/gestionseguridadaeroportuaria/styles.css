@@ -264,3 +264,16 @@ body {
   height: 100%;
   object-fit: cover; /* La propiedad clave */
 }
+
+
+/* --- Estilo para el Botón de Acción Flotante (FAB) --- */
+vaadin-button.fab {
+    position: fixed;
+    bottom: var(--lumo-space-l);
+    right: var(--lumo-space-l);
+    border-radius: 50%;
+    box-shadow: var(--aeroblue-shadow); /* Usando tu variable de sombra */
+    width: var(--lumo-size-xl);
+    height: var(--lumo-size-xl);
+    z-index: 99; /* Asegura que esté por encima de otros elementos */
+}
