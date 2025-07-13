@@ -25,32 +25,26 @@ public class MainLayout extends AppLayout {
         createDrawer();
     }
 
-    // --- MÉTODO REFACTORIZADO ---
-    private void createHeader() {
-        // El header ahora solo contiene el botón para el menú. Es limpio y minimalista.
-        DrawerToggle toggle = new DrawerToggle();
+    // ... el resto de la clase permanece igual ...
 
+    private void createHeader() {
+        DrawerToggle toggle = new DrawerToggle();
         HorizontalLayout header = new HorizontalLayout(toggle);
         header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         header.setWidthFull();
         header.addClassNames("py-0", "px-m");
-        
-        // Estilo para una separación visual limpia
         header.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
-
         addToNavbar(header);
     }
-    
-    // --- MÉTODO REFACTORIZADO ---
+
     private void createDrawer() {
-        // 1. Título de la App dentro del Drawer
         H2 appTitle = new H2("Seguridad App");
         appTitle.getStyle().set("font-size", "var(--lumo-font-size-l)").set("margin", "var(--lumo-space-s)");
-        
-        // 2. Contenedor de enlaces de navegación
+
         VerticalLayout navLinks = new VerticalLayout();
         navLinks.setPadding(false);
         navLinks.setSpacing(false);
+
         navLinks.add(
             createMenuLink(MainView.class, "Inicio", VaadinIcon.HOME),
             createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS),
@@ -63,20 +57,15 @@ public class MainLayout extends AppLayout {
             createMenuLink(PermisoAgenteAerolineaListView.class, "Permisos Aerolíneas", VaadinIcon.CONNECT)
         );
 
-        // 3. Botón de Cerrar Sesión
         Button logoutButton = new Button("Cerrar Sesión", VaadinIcon.SIGN_OUT.create(), e -> logout());
         logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logoutButton.setWidthFull();
 
-        // 4. Layout principal del Drawer
         VerticalLayout drawerLayout = new VerticalLayout(appTitle, navLinks, logoutButton);
         drawerLayout.setSizeFull();
         drawerLayout.setPadding(false);
         drawerLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
-        
-        // El truco para anclar el botón de logout abajo:
         drawerLayout.setFlexGrow(1, navLinks);
-        
         addToDrawer(drawerLayout);
     }
 
@@ -84,22 +73,16 @@ public class MainLayout extends AppLayout {
         RouterLink link = new RouterLink();
         link.getStyle().set("padding", "var(--lumo-space-s)");
         link.getStyle().set("border-radius", "var(--lumo-border-radius-m)");
-        
         Icon icon = iconName.create();
         Span span = new Span(caption);
-
         HorizontalLayout itemLayout = new HorizontalLayout(icon, span);
         itemLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         itemLayout.getStyle().set("gap", "var(--lumo-space-m)");
-
         link.add(itemLayout);
         link.setRoute(viewClass);
         link.setHighlightCondition(HighlightConditions.locationPrefix());
-        
-        // Efecto hover para mejor UX
         link.addFocusListener(e -> link.getStyle().set("background-color", "var(--lumo-contrast-5pct)"));
         link.addBlurListener(e -> link.getStyle().set("background-color", "transparent"));
-
         return link;
     }
 
