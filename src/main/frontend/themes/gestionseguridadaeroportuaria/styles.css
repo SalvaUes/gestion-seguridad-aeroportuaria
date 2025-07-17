@@ -1,138 +1,164 @@
 /*
  * ===================================================================
- * TEMA PERSONALIZADO "AeroModern v2"
+ * TEMA "AeroElegance v1.0"
  * Arquitecto: Gemini Senior AI
- * Misión: Refinamiento para una interfaz cohesiva y profesional.
+ * Misión: Transformar la UX con animaciones, transiciones y un
+ * diseño visualmente superior.
  * ===================================================================
  */
 
 /* -------------------------------------------------------------------
- * 1. Paleta de Colores y Variables Globales (Refinada)
+ * 1. Paleta de Colores y Variables Globales
  * ------------------------------------------------------------------- */
 :root {
-    /* Paleta de Colores Suavizada */
-    --am-color-primary: #3B82F6; /* Un azul profesional, menos saturado */
-    --am-color-primary-text: #FFFFFF;
-    --am-color-bg-dark: #1F2937;  /* Gris oscuro, no negro puro */
-    --am-color-bg-offset: #F9FAFB;/* Gris ultra claro para el fondo */
-    --am-color-bg-surface: #FFFFFF;
-    --am-color-text-dark: #D1D5DB; /* Texto claro, no blanco puro */
-    --am-color-text-light: #374151; /* Texto principal, gris oscuro */
-    --am-color-text-header: #111827;
-    --am-color-border: #E5E7EB;   /* Bordes más suaves */
+    /* Paleta de Colores Principal */
+    --ae-color-primary: #3B82F6; /* Azul vibrante pero profesional */
+    --ae-color-primary-text: #FFFFFF;
+    --ae-color-bg-dark: #111827; /* Un negro azulado más profundo */
+    --ae-color-bg-offset: #F9FAFB;
+    --ae-color-bg-surface: #FFFFFF;
+    --ae-color-text-dark-primary: #E5E7EB; /* Texto principal en fondo oscuro */
+    --ae-color-text-dark-secondary: #9CA3AF; /* Texto secundario, más sutil */
+    --ae-color-text-light-header: #111827;
+    --ae-color-text-light-body: #374151;
+    --ae-color-border: #E5E7EB;
+    --ae-color-hover-dark: rgba(255, 255, 255, 0.05); /* Hover muy sutil */
 
     /* Tipografía */
-    --am-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --ae-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-    /* Radios y Sombras (sin cambios) */
-    --am-border-radius-m: 8px;
-    --am-border-radius-l: 12px;
-    --am-shadow-m: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    /* Radios y Sombras */
+    --ae-border-radius-m: 6px;
+    --ae-border-radius-l: 10px;
+    --ae-shadow-s: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --ae-shadow-m: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
 
 /* -------------------------------------------------------------------
- * 2. Integración con Lumo (Refinada)
+ * 2. Integración con Lumo
  * ------------------------------------------------------------------- */
 html {
-    --lumo-base-color: var(--am-color-bg-offset);
-    --lumo-primary-color: var(--am-color-primary);
-    --lumo-primary-text-color: var(--am-color-primary);
-    --lumo-body-text-color: var(--am-color-text-light);
-    --lumo-header-text-color: var(--am-color-text-header);
-    --lumo-font-family: var(--am-font-family);
-    --lumo-border-radius-m: var(--am-border-radius-m);
-    --lumo-shade-5pct: rgba(0,0,0,0.05); /* Sombras más claras */
+    --lumo-base-color: var(--ae-color-bg-offset);
+    --lumo-primary-color: var(--ae-color-primary);
+    --lumo-primary-text-color: var(--ae-color-primary);
+    --lumo-body-text-color: var(--ae-color-text-light-body);
+    --lumo-header-text-color: var(--ae-color-text-light-header);
+    --lumo-font-family: var(--ae-font-family);
+    --lumo-border-radius-m: var(--ae-border-radius-m);
+    --lumo-border-radius-l: var(--ae-border-radius-l);
+    --lumo-shade-5pct: rgba(0,0,0,0.05);
 }
 
 /* -------------------------------------------------------------------
- * 3. Estilos del Layout Principal (Refinado)
+ * 3. Estilos del Layout Principal
  * ------------------------------------------------------------------- */
 body {
-    background-color: var(--am-color-bg-offset) !important;
+    background-color: var(--ae-color-bg-offset) !important;
 }
 
+/* --- Cabecera (Navbar) --- */
+[slot="navbar"] {
+    box-shadow: var(--ae-shadow-s);
+    background-color: var(--ae-color-bg-surface);
+}
+
+/* --- Menú Lateral (Drawer) --- */
 [slot="drawer"] {
-    background-color: var(--am-color-bg-dark) !important;
-    border-right: 1px solid var(--am-color-bg-dark) !important; /* Sin borde visible */
+    background-color: var(--ae-color-bg-dark) !important;
+    border-right: none !important;
+    box-shadow: inset -5px 0 15px -5px rgba(0, 0, 0, 0.2); /* Sombra interior */
 }
 
-[slot="drawer"] h2 {
-    color: #fff !important; /* Título blanco para máximo contraste */
+[slot="drawer"] h2.app-title {
+    color: var(--ae-color-primary-text) !important;
     font-weight: 600;
-    margin: 1.5rem 1rem 1rem 1.5rem !important;
+    margin: 1.5rem 1.5rem 1rem 1.5rem !important;
 }
 
-[slot="drawer"] .vaadin-drawer-item {
-    padding: 0.75rem 1.5rem;
+/* --- Elementos del Menú de Navegación (LA MAGIA PRINCIPAL) --- */
+.vaadin-drawer-item {
     margin: 0.25rem 0.75rem;
-    border-radius: var(--am-border-radius-m);
-    color: var(--am-color-text-dark);
+    padding: 0.75rem;
+    border-radius: var(--ae-border-radius-l);
+    color: var(--ae-color-text-dark-secondary);
     font-weight: 500;
-    transition: background-color 0.2s, color 0.2s;
+    cursor: pointer;
+    outline: none;
+    /* Indicador lateral, inicialmente transparente */
+    border-left: 4px solid transparent;
+    /* Transición suave para todos los cambios */
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-left-color 0.2s ease-in-out;
 }
 
-[slot="drawer"] .vaadin-drawer-item:hover {
-    background-color: #374151; /* Un gris más claro para el hover */
-    color: #FFFFFF;
+/* El icono también se anima */
+.vaadin-drawer-item vaadin-icon, .vaadin-drawer-item span {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-[slot="drawer"] .vaadin-drawer-item[highlight] {
-    background-color: var(--am-color-primary);
-    color: var(--am-color-primary-text);
-    box-shadow: var(--am-shadow-m);
+/* Estado HOVER: el cursor está sobre el elemento */
+.vaadin-drawer-item:hover {
+    background-color: var(--ae-color-hover-dark);
+    color: var(--ae-color-text-dark-primary);
 }
 
-[slot="drawer"] .logout-button {
-    margin: 1rem 0.75rem !important;
-    background-color: transparent !important;
-    border: 1px solid #4B5563 !important;
-    color: var(--am-color-text-dark) !important;
-    transition: background-color 0.2s, border-color 0.2s;
+/* Animación del icono en HOVER */
+.vaadin-drawer-item:hover vaadin-icon {
+    transform: translateX(4px);
 }
 
-[slot="drawer"] .logout-button:hover {
-    background-color: #374151 !important;
-    border-color: #374151 !important;
+/* Estado HIGHLIGHT: la ruta está activa */
+.vaadin-drawer-item[highlight] {
+    color: var(--ae-color-primary-text);
+    background-color: var(--ae-color-primary);
+}
+
+/* ---- Botón de Cerrar Sesión ---- */
+.logout-button {
+    margin: auto 0.75rem 0.75rem 0.75rem !important;
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: var(--ae-color-text-dark-secondary) !important;
+    font-weight: 500;
+    border-radius: var(--ae-border-radius-l);
+    transition: all 0.2s ease-in-out;
+}
+
+.logout-button:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: var(--ae-color-primary-text) !important;
 }
 
 /* -------------------------------------------------------------------
- * 4. Estilos para el Contenido y Componentes (¡NUEVO!)
+ * 4. Estilos para el Contenido y Componentes
  * ------------------------------------------------------------------- */
-
-/* Contenedor principal de cada vista */
 .view-container {
     padding: 1rem 2rem;
 }
 
-/* Encabezado de la vista (ej. "Gestión de Turnos") */
 .view-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--am-color-border);
+    border-bottom: 1px solid var(--ae-color-border);
     padding-bottom: 1rem;
     margin-bottom: 1.5rem;
 }
 
-.view-header h1, .view-header h2 {
-    color: var(--am-color-text-header);
+.view-header h2 {
+    color: var(--ae-color-text-light-header);
     font-size: 1.875rem; /* 30px */
-    font-weight: 600;
+    font-weight: 700;
     margin: 0;
 }
 
-/* Estilo general para botones */
-vaadin-button[theme~="primary"] {
-    box-shadow: var(--am-shadow-m);
-}
-vaadin-button[theme~="tertiary"] {
-    color: var(--am-color-text-light);
+vaadin-grid {
+    background-color: var(--ae-color-bg-surface);
+    border-radius: var(--ae-border-radius-l);
+    border: 1px solid var(--ae-color-border);
+    box-shadow: var(--ae-shadow-s);
 }
 
-/* Estilo para Grids */
-vaadin-grid {
-    background-color: var(--am-color-bg-surface);
-    border-radius: var(--am-border-radius-l);
-    box-shadow: none;
-    border: 1px solid var(--am-color-border);
+vaadin-button[theme~="primary"] {
+    box-shadow: var(--ae-shadow-m);
 }
