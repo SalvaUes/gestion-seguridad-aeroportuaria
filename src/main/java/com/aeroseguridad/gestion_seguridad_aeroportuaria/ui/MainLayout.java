@@ -1,6 +1,5 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
-// NO hay import para .ui.views.* porque las clases están en este mismo paquete.
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
@@ -42,15 +41,13 @@ public class MainLayout extends AppLayout {
         navLinks.setSpacing(false);
         navLinks.addClassName("nav-links");
 
+        // **CORRECCIÓN: La vista de Supervisores ahora está activa.**
         navLinks.add(
             createMenuLink(MainView.class, "Inicio", VaadinIcon.HOME),
             createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS),
             createMenuLink(TurnoListView.class, "Turnos", VaadinIcon.CLOCK),
             createMenuLink(PosicionListView.class, "Posiciones", VaadinIcon.CHECK_SQUARE_O),
-            // NOTA: Mantengo comentada la vista de Supervisores porque no encontré el archivo
-            // 'SupervisoresView.java' en la estructura del proyecto que me proporcionaste.
-            // Si la clase existe, simplemente descomenta la siguiente línea.
-            // createMenuLink(SupervisoresView.class, "Supervisores", VaadinIcon.USER_CARD),
+            createMenuLink(SupervisoresView.class, "Supervisores", VaadinIcon.USER_CARD),
             createMenuLink(AerolineaListView.class, "Aerolíneas", VaadinIcon.AIRPLANE),
             createMenuLink(VueloListView.class, "Vuelos", VaadinIcon.FLIGHT_TAKEOFF),
             createMenuLink(PermisoListView.class, "Permisos", VaadinIcon.CALENDAR_USER),
@@ -65,7 +62,7 @@ public class MainLayout extends AppLayout {
         drawerLayout.setSizeFull();
         drawerLayout.setPadding(false);
         drawerLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
-        drawerLayout.setFlexGrow(1, navLinks);
+        
         addToDrawer(drawerLayout);
     }
 
@@ -75,6 +72,7 @@ public class MainLayout extends AppLayout {
 
         Icon icon = iconName.create();
         Span span = new Span(caption);
+        span.addClassName("menu-item-text");
 
         HorizontalLayout itemLayout = new HorizontalLayout(icon, span);
         itemLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
