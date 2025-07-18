@@ -1,9 +1,13 @@
+// RUTA: com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/MainLayout.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -11,25 +15,68 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.HighlightConditions;
+import com.vaadin.flow.router.PageTitle; // <-- IMPORTACIÓN NECESARIA
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 public class MainLayout extends AppLayout {
 
+    private H1 pageTitle;
+
     public MainLayout() {
+        getElement().getClassList().add("view-container");
+
         createHeader();
         createDrawer();
+
+        addAttachListener(event -> {
+            UI ui = event.getUI();
+            ui.addAfterNavigationListener(this::updatePageTitle);
+        });
+    }
+    
+    /**
+     * MÉTODO PARA ACTUALIZAR EL TÍTULO (CORREGIDO)
+     */
+    private void updatePageTitle(AfterNavigationEvent event) {
+        // Obtenemos la clase de la vista activa. get(0) es la vista principal.
+        // Se usa .get(0) porque es la vista principal en la cadena de navegación.
+        Class<?> viewClass = event.getActiveChain().get(0).getClass();
+        
+        // Se busca la anotación @PageTitle en la clase de la vista.
+        PageTitle titleAnnotation = viewClass.getAnnotation(PageTitle.class);
+
+        if (titleAnnotation != null && pageTitle != null) {
+            // Si la anotación existe, usamos su valor para el título.
+            pageTitle.setText(titleAnnotation.value());
+        } else if (pageTitle != null) {
+            // Si no hay anotación, dejamos el título en blanco o con un valor por defecto.
+            pageTitle.setText("AeroPrime");
+        }
     }
 
     private void createHeader() {
         DrawerToggle toggle = new DrawerToggle();
-        HorizontalLayout header = new HorizontalLayout(toggle);
-        header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
-        header.setWidthFull();
-        header.addClassNames("py-0", "px-m");
-        addToNavbar(header);
+
+        Div headerContainer = new Div(toggle);
+        headerContainer.addClassName("app-header");
+
+        Div headerContent = new Div();
+        headerContent.addClassName("app-header-content");
+
+        pageTitle = new H1();
+        pageTitle.addClassName("page-title");
+        
+        Div headerActions = new Div();
+        headerActions.addClassName("header-actions");
+        
+        headerContent.add(pageTitle, headerActions);
+        headerContainer.add(headerContent);
+
+        addToNavbar(headerContainer);
     }
 
     private void createDrawer() {
@@ -41,7 +88,6 @@ public class MainLayout extends AppLayout {
         navLinks.setSpacing(false);
         navLinks.addClassName("nav-links");
 
-        // **CORRECCIÓN: La vista de Supervisores ahora está activa.**
         navLinks.add(
             createMenuLink(MainView.class, "Inicio", VaadinIcon.HOME),
             createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS),
