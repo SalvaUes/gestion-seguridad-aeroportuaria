@@ -1,6 +1,8 @@
 // RUTA: com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/MainLayout.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
@@ -20,7 +22,6 @@ import com.vaadin.flow.router.HighlightConditions;
 import com.vaadin.flow.router.PageTitle; // <-- IMPORTACIÓN NECESARIA
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
-import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 public class MainLayout extends AppLayout {
 

@@ -2,8 +2,8 @@ import { injectGlobalCss } from 'Frontend/generated/jar-resources/theme-util.js'
 
 import { css, unsafeCSS, registerStyles } from '@vaadin/vaadin-themable-mixin';
 import $cssFromFile_0 from 'Frontend/themes/gestionseguridadaeroportuaria/styles.css?inline';
-const $css_0 = typeof $cssFromFile_0  === 'string' ? unsafeCSS($cssFromFile_0) : $cssFromFile_0;
-registerStyles('vaadin-app-layout', $css_0, {moduleId: 'flow_css_mod_0'});
+
+injectGlobalCss($cssFromFile_0.toString(), 'CSSImport end', document);
 import '@vaadin/polymer-legacy-adapter/style-modules.js';
 import '@vaadin/vertical-layout/theme/lumo/vaadin-vertical-layout.js';
 import '@vaadin/form-layout/theme/lumo/vaadin-form-layout.js';
