@@ -3,6 +3,7 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull; // Importa NotNull
 import lombok.*;
+import java.util.Set;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +16,9 @@ import java.time.LocalDateTime;
 @ToString(exclude = "aerolinea") // Excluir relaciones perezosas
 @EqualsAndHashCode(exclude = "aerolinea")
 public class Vuelo {
+
+    @OneToMany(mappedBy = "vuelo", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+private Set<NecesidadVuelo> necesidades;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -38,6 +38,12 @@ public interface VueloRepository extends JpaRepository<Vuelo, Long> {
             @Param("finRango") LocalDateTime finRango,
             @Param("numeroVuelo") String numeroVuelo
     );
+
+
+    // AÑADE ESTE NUEVO MÉTODO
+    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea WHERE v.fechaHoraLlegada BETWEEN :inicio AND :fin")
+    List<Vuelo> findVuelosInPeriodFetchingAerolinea(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
     // --- FIN QUERY CORREGIDA ---
 
 }
