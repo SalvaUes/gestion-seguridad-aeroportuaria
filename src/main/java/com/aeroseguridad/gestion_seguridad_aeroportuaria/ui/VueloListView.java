@@ -277,7 +277,7 @@ public class VueloListView extends VerticalLayout {
             flightCardContainer.add(new Span("No se encontraron vuelos para los criterios seleccionados."));
         } else {
             vuelos.forEach(vuelo -> {
-                VueloCard card = new VueloCard(vuelo, necesidadService);
+                VueloCard card = new VueloCard(vuelo, 0);
                 card.addCardClickListener(e -> openVueloEditorDialog(e.getVuelo()));
                 flightCardContainer.add(card);
             });

@@ -508,10 +508,86 @@ vaadin-app-layout::part(navbar)::before {
 
 }
 
+
 /* ... resto de estilos de .agent-card y sus hijos se mantienen ... */
 
 .agent-card:hover{transform:translateY(-5px);box-shadow:var(--ap-shadow-lg);border-color:var(--ap-color-primary)}.agent-card::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,var(--ap-color-primary-light),var(--ap-color-primary-dark));transform:scaleX(0);transform-origin:left;transition:transform var(--ap-transition-base)}.agent-card:hover::after{transform:scaleX(1)}.agent-card .avatar{width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:var(--ap-spacing-md);border:3px solid var(--ap-color-primary-tint)}.agent-card .agent-name{font-size:var(--ap-font-size-lg);font-weight:var(--ap-font-weight-semibold);color:var(--ap-color-text-light-header);margin:0 0 4px 0}.agent-card .agent-role{font-size:var(--ap-font-size-sm);font-weight:var(--ap-font-weight-medium);color:var(--ap-color-primary);margin:0 0 var(--ap-spacing-md) 0}.agent-card .agent-details{font-size:var(--ap-font-size-sm);color:var(--ap-color-text-light-muted);line-height:1.5;text-align:center;width:100%}
 
+/* -------------------------------------------------------------------
+ * 4.1. TARJETAS DE VUELO (NUEVO)
+ * ------------------------------------------------------------------- */
+.vuelo-card {
+    background-color: var(--ap-color-bg-surface);
+    border-radius: var(--ap-border-radius-lg);
+    box-shadow: var(--ap-shadow-sm);
+    padding: var(--ap-spacing-lg);
+    margin: var(--ap-spacing-sm);
+    border-left: 5px solid;
+    transition: all var(--ap-transition-base);
+    cursor: pointer;
+}
+
+.vuelo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--ap-shadow-lg);
+}
+
+.vuelo-card .aerolinea-nombre {
+    font-weight: var(--ap-font-weight-bold);
+    font-size: var(--ap-font-size-l);
+    color: var(--ap-color-text-light-header);
+}
+
+.vuelo-card .numero-vuelo {
+    font-size: var(--ap-font-size-s);
+    color: var(--ap-color-text-light-muted);
+}
+
+.vuelo-card .ruta-vuelo {
+    font-size: var(--ap-font-size-m);
+    color: var(--ap-color-primary-dark);
+    margin-bottom: var(--ap-spacing-md);
+}
+
+.vuelo-card .hora-operacion {
+    font-size: var(--ap-font-size-xl);
+    font-weight: var(--ap-font-weight-bold);
+    color: var(--ap-color-text-light-header);
+}
+
+.vuelo-card .progress-text {
+    font-size: var(--ap-font-size-s);
+    color: var(--ap-color-text-light-muted);
+    margin-left: auto; /* Empuja el texto a la derecha */
+}
+
+.vuelo-card .conflict-icon {
+    color: var(--ap-color-error);
+    margin-left: var(--ap-spacing-sm);
+}
+
+/* Colores de Estado */
+.vuelo-card.status-ok {
+    border-left-color: var(--ap-color-success);
+}
+.vuelo-card.status-warning {
+    border-left-color: var(--ap-color-warning);
+}
+.vuelo-card.status-critical {
+    border-left-color: var(--ap-color-error);
+}
+
+
+/* -------------------------------------------------------------------
+ * 4.2. CONTENEDOR DE TARJETAS DE VUELO (NUEVO)
+ * ------------------------------------------------------------------- */
+.vuelo-card-container {
+    display: grid;
+    /* auto-fill crea tantas columnas como quepan con un min de 350px */
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--ap-spacing-lg);
+    padding-top: var(--ap-spacing-lg);
+}
 
 
 /* === NUEVO: Botón Flotante (FAB) para "Agregar Agente" === */

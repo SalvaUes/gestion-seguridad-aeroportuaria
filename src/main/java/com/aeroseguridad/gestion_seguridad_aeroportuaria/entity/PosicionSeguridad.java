@@ -2,7 +2,7 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull; // Importar para el enum y boolean
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.HashSet;
@@ -15,31 +15,32 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(exclude = "agentes")
-@EqualsAndHashCode(exclude = "agentes")
+// CORRECCIÓN: Se cambia la forma en que se define la igualdad del objeto.
+@EqualsAndHashCode(of = "idPosicion") 
 public class PosicionSeguridad {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idPosicion;
 
-    @NotBlank // Para Strings
+    @NotBlank 
     @Column(nullable = false, unique = true, length = 100)
     private String nombrePosicion;
 
     @Column(length = 255)
     private String descripcion;
 
-    @NotNull // Los enums se validan con NotNull
+    @NotNull 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Genero generoRequerido = Genero.OTRO; // Por defecto, OTRO
+    private Genero generoRequerido = Genero.OTRO; 
 
-    @Column(nullable = false) // boolean primitivo es not null por defecto
+    @Column(nullable = false) 
     private boolean requiereEntrenamientoEspecial = false;
 
-    @NotNull // Para el wrapper Boolean
+    @NotNull 
     @Column(nullable = false)
-    private Boolean activo = true; // Campo para Soft Delete
+    private Boolean activo = true; 
 
     @ManyToMany(mappedBy = "posicionesHabilitadas")
     private Set<Agente> agentes = new HashSet<>();

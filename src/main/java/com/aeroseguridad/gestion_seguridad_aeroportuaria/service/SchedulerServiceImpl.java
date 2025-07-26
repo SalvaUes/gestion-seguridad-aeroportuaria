@@ -47,23 +47,18 @@ public class SchedulerServiceImpl implements SchedulerService {
         LocalDateTime inicioPeriodo = request.getStartDate().atStartOfDay();
         LocalDateTime finPeriodo = request.getEndDate().atTime(23, 59, 59);
         
-        // --- Carga de Datos Optimizada usando TUS repositorios ---
         List<Vuelo> vuelosEnPeriodo = vueloRepository.findVuelosInPeriodFetchingAerolinea(inicioPeriodo, finPeriodo);
         List<Agente> agentesActivos = agenteRepository.findActivosFetchingPosiciones();
         
-        // 1. Usar tus métodos existentes para cargar datos del período
         List<Turno> todosLosTurnos = turnoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo);
         List<Permiso> todosLosPermisos = permisoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo);
 
-        // 2. Agrupar en Mapas para búsqueda instantánea, filtrando permisos por APROBADO
         Map<Long, List<Turno>> turnosPorAgente = todosLosTurnos.stream()
                 .collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
         
         Map<Long, List<Permiso>> permisosAprobadosPorAgente = todosLosPermisos.stream()
                 .filter(p -> p.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO)
                 .collect(Collectors.groupingBy(p -> p.getAgente().getIdAgente()));
-        
-        // --- Fin Carga de Datos ---
         
         ScheduleResult result = new ScheduleResult();
         List<Assignment> assignmentsToSave = new ArrayList<>();
@@ -116,7 +111,11 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         return todosAgentes.stream()
             .filter(agente -> currentAssignmentsInLoop.stream().noneMatch(a -> a.getAgente() != null && a.getAgente().equals(agente)))
-            .filter(agente -> agente.getPermisosAerolinea() != null && agente.getPermisosAerolinea().stream().anyMatch(permiso -> permiso.getAerolinea().equals(vuelo.getAerolinea())))
+            .filter(agente -> {
+                if (agente.getPermisosAerolinea() == null) return false;
+                return agente.getPermisosAerolinea().stream()
+                        .anyMatch(permiso -> permiso.getAerolinea().getIdAerolinea().equals(vuelo.getAerolinea().getIdAerolinea()));
+            })
             .filter(agente -> {
                 Genero generoRequerido = posicion.getGeneroRequerido();
                 return generoRequerido == Genero.OTRO || agente.getGenero() == generoRequerido;
@@ -142,5 +141,33 @@ public class SchedulerServiceImpl implements SchedulerService {
         return permisosDelAgente.stream().anyMatch(permiso -> 
             permiso.getFechaInicio().isBefore(finServicio) && permiso.getFechaFin().isAfter(inicioServicio)
         );
+    }
+
+    // --- NUEVO MÉTODO: Implementación para encontrar candidatos ---
+    @Override
+    public List<Agente> findCandidates(NecesidadVuelo necesidad, List<Assignment> currentAssignments) {
+        List<Agente> agentesActivos = agenteRepository.findActivosFetchingPosiciones();
+        Map<Long, List<Turno>> turnosPorAgente = turnoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
+        Map<Long, List<Permiso>> permisosAprobadosPorAgente = permisoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().filter(p -> p.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO).collect(Collectors.groupingBy(p -> p.getAgente().getIdAgente()));
+
+        List<Agente> agentesYaAsignados = currentAssignments.stream()
+                .filter(a -> a.getAgente() != null)
+                .map(Assignment::getAgente)
+                .collect(Collectors.toList());
+
+        return agentesActivos.stream()
+            .filter(agente -> !agentesYaAsignados.contains(agente))
+            .filter(agente -> findBestFitAgentFor(necesidad, List.of(agente), List.of(), turnosPorAgente, permisosAprobadosPorAgente).isPresent())
+            .collect(Collectors.toList());
+    }
+
+    // --- NUEVO MÉTODO: Implementación para guardar los cambios ---
+    @Override
+    @Transactional
+    public void updateAssignmentsForVuelo(Vuelo vuelo, List<Assignment> newAssignments) {
+        logger.info("Actualizando asignaciones para el vuelo: {}", vuelo.getNumeroVuelo());
+        assignmentRepository.deleteAllByVuelo(vuelo);
+        assignmentRepository.saveAll(newAssignments);
+        logger.info("Se guardaron {} nuevas asignaciones.", newAssignments.size());
     }
 }
