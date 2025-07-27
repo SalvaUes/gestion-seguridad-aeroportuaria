@@ -25,7 +25,6 @@ public class VueloCard extends VerticalLayout {
         setSpacing(false);
         setPadding(false);
 
-        // -- Encabezado (Aerolínea, Vuelo) --
         Span nombreAerolinea = new Span(vuelo.getAerolinea().getNombre());
         nombreAerolinea.addClassName("aerolinea-nombre");
         Span numeroVuelo = new Span(vuelo.getNumeroVuelo());
@@ -34,17 +33,13 @@ public class VueloCard extends VerticalLayout {
         headerLayout.setWidthFull();
         headerLayout.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
-        // -- Ruta --
         Span rutaVuelo = new Span(vuelo.getOrigen() + " → " + vuelo.getDestino());
         rutaVuelo.addClassName("ruta-vuelo");
 
-        // -- Sección de Estado (Hora y Barra de Progreso) --
         Div statusSection = createStatusSection(vuelo, personalAsignado);
         
-        // -- Añadir todo a la tarjeta --
         add(headerLayout, rutaVuelo, statusSection);
         
-        // La tarjeta dispara nuestro evento personalizado al hacer clic
         addClickListener(event -> fireEvent(new CardClickEvent(this, vuelo)));
     }
 
@@ -52,26 +47,35 @@ public class VueloCard extends VerticalLayout {
         Div footer = new Div();
         footer.setWidthFull();
 
-        int necesario = vuelo.getNecesidades().stream()
+        int necesario = (vuelo.getNecesidades() == null) ? 0 : vuelo.getNecesidades().stream()
                 .mapToInt(NecesidadVuelo::getCantidadAgentes)
                 .sum();
 
-        // Hora de Operación
         String horaOperacion = vuelo.getTipoOperacion().toString().contains("LLEGADA") ?
                 vuelo.getFechaHoraLlegada().format(TIME_FORMATTER) :
                 vuelo.getFechaHoraSalida().format(TIME_FORMATTER);
         Span hora = new Span(horaOperacion);
         hora.addClassName("hora-operacion");
 
-        // Barra de Progreso
-        ProgressBar progressBar = new ProgressBar(0, necesario, asignado);
-        Span progressText = new Span("Personal: " + asignado + "/" + necesario);
+        ProgressBar progressBar = new ProgressBar();
+        Span progressText = new Span();
         progressText.addClassName("progress-text");
-
-        // Icono de Conflicto
+        
+        if (necesario > 0) {
+            progressBar.setMin(0);
+            progressBar.setMax(necesario);
+            progressBar.setValue(asignado);
+            progressText.setText("Personal: " + asignado + "/" + necesario);
+        } else {
+            progressBar.setValue(1); // Barra llena para indicar que no hay nada pendiente
+            // --- CORRECCIÓN: Reemplazamos setEnabled por una clase CSS ---
+            progressBar.addClassName("progress-bar-na"); // "na" = No Aplica
+            progressText.setText("Sin Requisitos");
+        }
+        
         Icon conflictIcon = VaadinIcon.WARNING.create();
         conflictIcon.addClassName("conflict-icon");
-        conflictIcon.setVisible(asignado < necesario);
+        conflictIcon.setVisible(necesario > 0 && asignado < necesario);
 
         HorizontalLayout progressLayout = new HorizontalLayout(progressText, conflictIcon);
         progressLayout.setAlignItems(Alignment.CENTER);
@@ -100,25 +104,19 @@ public class VueloCard extends VerticalLayout {
         }
     }
 
-    // --- INICIO DEL CÓDIGO AÑADIDO ---
-    // Clase interna para el evento de clic personalizado
     public static class CardClickEvent extends ComponentEvent<VueloCard> {
         private final Vuelo vuelo;
-
         public CardClickEvent(VueloCard source, Vuelo vuelo) {
             super(source, false);
             this.vuelo = vuelo;
         }
-
         public Vuelo getVuelo() {
             return vuelo;
         }
     }
 
-    // Método público para agregar un listener para nuestro evento personalizado
     public Registration addCardClickListener(ComponentEventListener<CardClickEvent> listener) {
-        getStyle().set("cursor", "pointer"); // Cambia el cursor para indicar que es clickeable
+        getStyle().set("cursor", "pointer");
         return addListener(CardClickEvent.class, listener);
     }
-    // --- FIN DEL CÓDIGO AÑADIDO ---
 }

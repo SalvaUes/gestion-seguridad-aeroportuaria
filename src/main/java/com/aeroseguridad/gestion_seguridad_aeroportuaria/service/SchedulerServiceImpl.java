@@ -4,43 +4,41 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleRequest;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleResult;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.*;
+import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class SchedulerServiceImpl implements SchedulerService {
     
     private static final Logger logger = LoggerFactory.getLogger(SchedulerServiceImpl.class);
 
     private final VueloRepository vueloRepository;
     private final AgenteRepository agenteRepository;
-    private final AssignmentRepository assignmentRepository;
     private final TurnoRepository turnoRepository;
     private final PermisoRepository permisoRepository;
 
     @Autowired
-    public SchedulerServiceImpl(VueloRepository vueloRepository, AgenteRepository agenteRepository, AssignmentRepository assignmentRepository, TurnoRepository turnoRepository, PermisoRepository permisoRepository) {
+    public SchedulerServiceImpl(VueloRepository vueloRepository, AgenteRepository agenteRepository, TurnoRepository turnoRepository, PermisoRepository permisoRepository) {
         this.vueloRepository = vueloRepository;
         this.agenteRepository = agenteRepository;
-        this.assignmentRepository = assignmentRepository;
         this.turnoRepository = turnoRepository;
         this.permisoRepository = permisoRepository;
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
     public Future<ScheduleResult> generateSchedule(ScheduleRequest request) {
         logger.info("Generando horario para el período: {} a {}", request.getStartDate(), request.getEndDate());
         
@@ -48,58 +46,47 @@ public class SchedulerServiceImpl implements SchedulerService {
         LocalDateTime finPeriodo = request.getEndDate().atTime(23, 59, 59);
         
         List<Vuelo> vuelosEnPeriodo = vueloRepository.findVuelosInPeriodFetchingAerolinea(inicioPeriodo, finPeriodo);
-        List<Agente> agentesActivos = agenteRepository.findActivosFetchingPosiciones();
+        List<Agente> agentesActivos = agenteRepository.findActivosWithDetails();
         
-        List<Turno> todosLosTurnos = turnoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo);
-        List<Permiso> todosLosPermisos = permisoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo);
-
-        Map<Long, List<Turno>> turnosPorAgente = todosLosTurnos.stream()
+        Map<Long, List<Turno>> turnosPorAgente = turnoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo).stream()
                 .collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
-        
-        Map<Long, List<Permiso>> permisosAprobadosPorAgente = todosLosPermisos.stream()
+        Map<Long, List<Permiso>> permisosAprobadosPorAgente = permisoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo).stream()
                 .filter(p -> p.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO)
                 .collect(Collectors.groupingBy(p -> p.getAgente().getIdAgente()));
         
         ScheduleResult result = new ScheduleResult();
-        List<Assignment> assignmentsToSave = new ArrayList<>();
-        List<Assignment> assignmentsInThisRun = new ArrayList<>();
+        List<Vuelo> vuelosToSave = new ArrayList<>();
 
         for (Vuelo vuelo : vuelosEnPeriodo) {
-            if (vuelo.getNecesidades() == null || vuelo.getNecesidades().isEmpty()) continue;
+            Vuelo managedVuelo = vueloRepository.findByIdWithFullDetails(vuelo.getIdVuelo()).orElse(vuelo);
+            
+            if (managedVuelo.getNecesidades() == null || managedVuelo.getNecesidades().isEmpty()) continue;
+            
+            managedVuelo.getAssignments().clear();
 
-            for (NecesidadVuelo necesidad : vuelo.getNecesidades()) {
-                PosicionSeguridad posicionRequerida = necesidad.getPosicion();
-                int cantidadNecesaria = necesidad.getCantidadAgentes();
-                for (int i = 0; i < cantidadNecesaria; i++) {
-                    logger.debug("Buscando agente para Vuelo {}, Posición {} ({}/{})", vuelo.getNumeroVuelo(), posicionRequerida.getNombrePosicion(), i + 1, cantidadNecesaria);
-                    
-                    Optional<Agente> bestFitAgent = findBestFitAgentFor(necesidad, agentesActivos, assignmentsInThisRun, turnosPorAgente, permisosAprobadosPorAgente);
+            for (NecesidadVuelo necesidad : managedVuelo.getNecesidades()) {
+                for (int i = 0; i < necesidad.getCantidadAgentes(); i++) {
+                    Optional<Agente> bestFitAgent = findBestFitAgentFor(necesidad, agentesActivos, new ArrayList<>(managedVuelo.getAssignments()), turnosPorAgente, permisosAprobadosPorAgente);
                     
                     Assignment newAssignment = new Assignment();
-                    newAssignment.setVuelo(vuelo);
-                    newAssignment.setPosicionSeguridad(posicionRequerida);
-                    newAssignment.setFechaAsignacion(vuelo.getFechaHoraLlegada().toLocalDate());
+                    newAssignment.setPosicionSeguridad(necesidad.getPosicion());
+                    newAssignment.setFechaAsignacion(managedVuelo.getFechaHoraLlegada().toLocalDate());
 
                     if (bestFitAgent.isPresent()) {
-                        Agente agenteAsignado = bestFitAgent.get();
-                        newAssignment.setAgente(agenteAsignado);
+                        newAssignment.setAgente(bestFitAgent.get());
                         newAssignment.setEstado("ASIGNADO");
-                        assignmentsToSave.add(newAssignment);
                         result.getAssignments().add(newAssignment);
-                        assignmentsInThisRun.add(newAssignment); 
-                        logger.info("Asignado: Agente {} -> Vuelo {}, Posición {}", agenteAsignado.getNombreCompleto(), vuelo.getNumeroVuelo(), posicionRequerida.getNombrePosicion());
                     } else {
                         newAssignment.setEstado("CONFLICTO_NO_CUBIERTO");
                         result.getConflicts().add(newAssignment);
-                        assignmentsInThisRun.add(newAssignment);
-                        logger.warn("CONFLICTO: No se encontró agente para Vuelo {}, Posición {}", vuelo.getNumeroVuelo(), posicionRequerida.getNombrePosicion());
-                        break; 
                     }
+                    managedVuelo.addAssignment(newAssignment);
                 }
             }
+            vuelosToSave.add(managedVuelo);
         }
         
-        assignmentRepository.saveAll(assignmentsToSave);
+        vueloRepository.saveAll(vuelosToSave);
         return CompletableFuture.completedFuture(result);
     }
     
@@ -108,9 +95,13 @@ public class SchedulerServiceImpl implements SchedulerService {
         PosicionSeguridad posicion = necesidad.getPosicion();
         LocalDateTime inicioServicio = necesidad.getInicioCobertura();
         LocalDateTime finServicio = necesidad.getFinCobertura();
+        Set<Long> agentesYaAsignadosIds = currentAssignmentsInLoop.stream()
+                .filter(a -> a.getAgente() != null)
+                .map(a -> a.getAgente().getIdAgente())
+                .collect(Collectors.toSet());
 
         return todosAgentes.stream()
-            .filter(agente -> currentAssignmentsInLoop.stream().noneMatch(a -> a.getAgente() != null && a.getAgente().equals(agente)))
+            .filter(agente -> !agentesYaAsignadosIds.contains(agente.getIdAgente()))
             .filter(agente -> {
                 if (agente.getPermisosAerolinea() == null) return false;
                 return agente.getPermisosAerolinea().stream()
@@ -126,27 +117,41 @@ public class SchedulerServiceImpl implements SchedulerService {
             })
             .filter(agente -> isAgentOnShift(agente, inicioServicio, finServicio, turnosPorAgente.get(agente.getIdAgente())))
             .filter(agente -> !isAgentOnLeave(agente, inicioServicio, finServicio, permisosPorAgente.get(agente.getIdAgente())))
-            .findFirst(); 
+            .findFirst();
     }
 
     private boolean isAgentOnShift(Agente agente, LocalDateTime inicioServicio, LocalDateTime finServicio, List<Turno> turnosDelAgente) {
         if (turnosDelAgente == null || turnosDelAgente.isEmpty()) return false;
+        
+        // =================================================================================
+        // CAMBIO CLAVE: Lógica de solapamiento en lugar de contención total.
+        // Un agente es válido si su turno (turno.inicio, turno.fin)
+        // se cruza con el servicio requerido (servicio.inicio, servicio.fin).
+        // La fórmula es: turno.inicio < servicio.fin Y turno.fin > servicio.inicio
+        // =================================================================================
         return turnosDelAgente.stream().anyMatch(turno -> 
-            !turno.getInicioTurno().isAfter(inicioServicio) && !turno.getFinTurno().isBefore(finServicio)
+            turno.getInicioTurno().isBefore(finServicio) && turno.getFinTurno().isAfter(inicioServicio)
         );
     }
 
     private boolean isAgentOnLeave(Agente agente, LocalDateTime inicioServicio, LocalDateTime finServicio, List<Permiso> permisosDelAgente) {
+        // Esta lógica ya era correcta (usaba solapamiento), por lo que se mantiene.
         if (permisosDelAgente == null || permisosDelAgente.isEmpty()) return false;
         return permisosDelAgente.stream().anyMatch(permiso -> 
             permiso.getFechaInicio().isBefore(finServicio) && permiso.getFechaFin().isAfter(inicioServicio)
         );
     }
 
-    // --- NUEVO MÉTODO: Implementación para encontrar candidatos ---
     @Override
-    public List<Agente> findCandidates(NecesidadVuelo necesidad, List<Assignment> currentAssignments) {
-        List<Agente> agentesActivos = agenteRepository.findActivosFetchingPosiciones();
+    @Transactional
+    public List<Agente> findCandidates(Long idVuelo, NecesidadVuelo necesidad, List<Assignment> currentAssignments) {
+        Vuelo managedVuelo = vueloRepository.findByIdWithFullDetails(idVuelo)
+                .orElseThrow(() -> new EntityNotFoundException("Vuelo no encontrado con ID: " + idVuelo));
+        
+        necesidad.setVuelo(managedVuelo);
+
+        List<Agente> agentesActivos = agenteRepository.findActivosWithDetails();
+        
         Map<Long, List<Turno>> turnosPorAgente = turnoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
         Map<Long, List<Permiso>> permisosAprobadosPorAgente = permisoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().filter(p -> p.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO).collect(Collectors.groupingBy(p -> p.getAgente().getIdAgente()));
 
@@ -161,13 +166,24 @@ public class SchedulerServiceImpl implements SchedulerService {
             .collect(Collectors.toList());
     }
 
-    // --- NUEVO MÉTODO: Implementación para guardar los cambios ---
     @Override
-    @Transactional
-    public void updateAssignmentsForVuelo(Vuelo vuelo, List<Assignment> newAssignments) {
-        logger.info("Actualizando asignaciones para el vuelo: {}", vuelo.getNumeroVuelo());
-        assignmentRepository.deleteAllByVuelo(vuelo);
-        assignmentRepository.saveAll(newAssignments);
-        logger.info("Se guardaron {} nuevas asignaciones.", newAssignments.size());
+    @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
+    public void updateAssignmentsForVuelo(Vuelo vueloDetached, List<Assignment> detachedAssignments) {
+        Vuelo managedVuelo = vueloRepository.findByIdWithFullDetails(vueloDetached.getIdVuelo())
+                .orElseThrow(() -> new EntityNotFoundException("Vuelo no encontrado con ID: " + vueloDetached.getIdVuelo()));
+
+        managedVuelo.getAssignments().clear();
+        
+        for (Assignment detachedAssignment : detachedAssignments) {
+            Assignment newManagedAssignment = new Assignment();
+            newManagedAssignment.setPosicionSeguridad(detachedAssignment.getPosicionSeguridad());
+            newManagedAssignment.setAgente(detachedAssignment.getAgente());
+            newManagedAssignment.setEstado(detachedAssignment.getEstado());
+            newManagedAssignment.setFechaAsignacion(detachedAssignment.getFechaAsignacion());
+            managedVuelo.addAssignment(newManagedAssignment);
+        }
+        
+        vueloRepository.save(managedVuelo);
+        logger.info("Se guardaron {} asignaciones para el vuelo {}", managedVuelo.getAssignments().size(), managedVuelo.getNumeroVuelo());
     }
 }

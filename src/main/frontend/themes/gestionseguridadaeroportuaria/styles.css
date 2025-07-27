@@ -1125,3 +1125,8 @@ vaadin-button{border-radius:var(--ap-border-radius);font-weight:var(--ap-font-we
     }
 
 }
+
+/* --- ESTILOS ADICIONALES --- */
+.progress-bar-na {
+    opacity: 0.6;
+}

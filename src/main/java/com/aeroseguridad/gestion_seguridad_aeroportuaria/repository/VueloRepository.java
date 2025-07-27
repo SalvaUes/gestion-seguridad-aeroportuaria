@@ -4,46 +4,49 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
-@Repository
 public interface VueloRepository extends JpaRepository<Vuelo, Long> {
 
-    // --- QUERY CORREGIDA DEFINITIVA: CAST en parámetro + lower() en ambos lados ---
-    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea " +
-           // Aplicar lower() a la columna (que es VARCHAR)
-           // Aplicar CAST al resultado de concat('%', :numeroVuelo, '%') ANTES de lower() y LIKE
-           "WHERE lower(v.numeroVuelo) LIKE lower(CAST(concat('%', :numeroVuelo, '%') AS STRING))")
-    List<Vuelo> findByNumeroVueloContainingIgnoreCaseFetchingAerolinea(@Param("numeroVuelo") String numeroVuelo);
-    // --- FIN QUERY CORREGIDA ---
+    // --- MÉTODOS EXISTENTES QUE YA CORREGIMOS ---
 
-
-    // Para obtener TODOS con JOIN FETCH
-    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea")
+    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea ORDER BY v.fechaHoraLlegada DESC")
     List<Vuelo> findAllFetchingAerolinea();
 
+    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea WHERE lower(v.numeroVuelo) LIKE lower(concat('%', :searchTerm, '%')) ORDER BY v.fechaHoraLlegada DESC")
+    List<Vuelo> findByNumeroVueloContainingIgnoreCaseFetchingAerolinea(@Param("searchTerm") String searchTerm);
 
-    // Busca vuelos que OCURREN (salida O llegada) dentro del rango Y opcionalmente filtrados por número de vuelo
-    // Trae la aerolínea asociada.
-    // --- QUERY CORREGIDA DEFINITIVA: CAST en parámetro + lower() en ambos lados ---
-    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea " +
-           "WHERE (v.fechaHoraSalida BETWEEN :inicioRango AND :finRango OR v.fechaHoraLlegada BETWEEN :inicioRango AND :finRango) " +
-           // Aplicar lower() a la columna y CAST + lower() al parámetro concatenado
-           "AND (:numeroVuelo IS NULL OR lower(v.numeroVuelo) LIKE lower(CAST(concat('%', :numeroVuelo, '%') AS STRING)))")
-    List<Vuelo> findByDateRangeAndNumeroVueloFetchingAerolinea(
-            @Param("inicioRango") LocalDateTime inicioRango,
-            @Param("finRango") LocalDateTime finRango,
-            @Param("numeroVuelo") String numeroVuelo
-    );
-
-
-    // AÑADE ESTE NUEVO MÉTODO
-    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea WHERE v.fechaHoraLlegada BETWEEN :inicio AND :fin")
+    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea WHERE v.fechaHoraLlegada BETWEEN :inicio AND :fin OR v.fechaHoraSalida BETWEEN :inicio AND :fin")
     List<Vuelo> findVuelosInPeriodFetchingAerolinea(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
-    // --- FIN QUERY CORREGIDA ---
+    // --- MÉTODO NUEVO PARA CORREGIR EL ERROR ACTUAL ---
 
+    /**
+     * Resuelve el error 'findByDateRangeAndNumeroVueloFetchingAerolinea is undefined'.
+     * Busca vuelos en un rango de fechas y, opcionalmente, filtra por número de vuelo.
+     * La consulta maneja el caso en que el número de vuelo sea nulo o vacío.
+     */
+    @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea " +
+           "WHERE (v.fechaHoraLlegada BETWEEN :startDate AND :endDate OR v.fechaHoraSalida BETWEEN :startDate AND :endDate) " +
+           "AND (:numeroVuelo IS NULL OR :numeroVuelo = '' OR lower(v.numeroVuelo) LIKE lower(concat('%', :numeroVuelo, '%'))) " +
+           "ORDER BY v.fechaHoraLlegada DESC")
+    List<Vuelo> findByDateRangeAndNumeroVueloFetchingAerolinea(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("numeroVuelo") String numeroVuelo
+    );
+    
+    // --- MÉTODO EXISTENTE PARA OBTENER DETALLES COMPLETOS ---
+
+    @Query("SELECT v FROM Vuelo v " +
+           "LEFT JOIN FETCH v.aerolinea " +
+           "LEFT JOIN FETCH v.necesidades n " +
+           "LEFT JOIN FETCH n.posicion " +
+           "LEFT JOIN FETCH v.assignments a " +
+           "LEFT JOIN FETCH a.agente " +
+           "LEFT JOIN FETCH a.posicionSeguridad " +
+           "WHERE v.idVuelo = :id")
+    Optional<Vuelo> findByIdWithFullDetails(@Param("id") Long id);
 }

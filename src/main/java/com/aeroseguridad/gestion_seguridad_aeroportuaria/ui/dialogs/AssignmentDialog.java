@@ -13,6 +13,8 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -24,14 +26,14 @@ public class AssignmentDialog extends Dialog {
 
     private final Vuelo vuelo;
     private final SchedulerService schedulerService;
-    private final List<Assignment> workingCopyAssignments; // Copia de trabajo para hacer cambios
+    private final List<Assignment> workingCopyAssignments;
     private final VerticalLayout assignmentsLayout;
-    private Runnable onSave; // Callback para refrescar el dashboard
+    private Runnable onSave;
 
     public AssignmentDialog(Vuelo vuelo, List<Assignment> initialAssignments, SchedulerService schedulerService) {
         this.vuelo = vuelo;
         this.schedulerService = schedulerService;
-        this.workingCopyAssignments = new ArrayList<>(initialAssignments); // Creamos una copia para editar
+        this.workingCopyAssignments = new ArrayList<>(initialAssignments);
 
         setHeaderTitle("Gestionar Personal para Vuelo: " + vuelo.getNumeroVuelo());
         setResizable(true);
@@ -60,6 +62,10 @@ public class AssignmentDialog extends Dialog {
         }
     }
 
+    /**
+    * CÓDIGO RESTAURADO: El cuerpo de este método y el siguiente
+    * ahora está completo y es funcional para construir la UI.
+    */
     private VerticalLayout createPositionRow(NecesidadVuelo necesidad) {
         VerticalLayout positionLayout = new VerticalLayout();
         positionLayout.setSpacing(false);
@@ -70,15 +76,16 @@ public class AssignmentDialog extends Dialog {
         agentChipsLayout.setSpacing(true);
 
         List<Assignment> assignedToPosition = workingCopyAssignments.stream()
-                .filter(a -> a.getPosicionSeguridad().equals(necesidad.getPosicion()))
+                .filter(a -> a.getAgente() != null && a.getPosicionSeguridad().equals(necesidad.getPosicion()))
                 .collect(Collectors.toList());
 
         for (Assignment assignment : assignedToPosition) {
             agentChipsLayout.add(createAgentChip(assignment));
         }
         
-        int neededCount = necesidad.getCantidadAgentes();
-        int assignedCount = assignedToPosition.size();
+        long assignedCount = assignedToPosition.size();
+        long neededCount = necesidad.getCantidadAgentes();
+        
         if (assignedCount < neededCount) {
             for (int i = 0; i < (neededCount - assignedCount); i++) {
                 agentChipsLayout.add(createCandidateSelector(necesidad));
@@ -93,7 +100,7 @@ public class AssignmentDialog extends Dialog {
         Span agentName = new Span(assignment.getAgente().getNombreCompleto());
         Button removeButton = new Button(new Icon(VaadinIcon.CLOSE_SMALL), e -> {
             workingCopyAssignments.remove(assignment);
-            refreshAssignmentsView(); // Redibuja la UI
+            refreshAssignmentsView();
         });
         removeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         HorizontalLayout chip = new HorizontalLayout(agentName, removeButton);
@@ -106,22 +113,26 @@ public class AssignmentDialog extends Dialog {
         ComboBox<Agente> comboBox = new ComboBox<>();
         comboBox.setPlaceholder("Asignar agente...");
         
-        // --- LÓGICA DE CARGA DE CANDIDATOS ---
-        List<Agente> candidates = schedulerService.findCandidates(necesidad, workingCopyAssignments);
-        comboBox.setItems(candidates);
-        comboBox.setItemLabelGenerator(Agente::getNombreCompleto);
+        try {
+            List<Agente> candidates = schedulerService.findCandidates(this.vuelo.getIdVuelo(), necesidad, workingCopyAssignments);
+            comboBox.setItems(candidates);
+            comboBox.setItemLabelGenerator(Agente::getNombreCompleto);
+        } catch (Exception e) {
+            Notification.show("Error al cargar candidatos: " + e.getMessage(), 3000, Notification.Position.BOTTOM_START)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            comboBox.setEnabled(false);
+        }
 
-        // --- LÓGICA DE SELECCIÓN ---
         comboBox.addValueChangeListener(event -> {
             if (event.getValue() != null) {
                 Assignment newAssignment = new Assignment();
-                newAssignment.setVuelo(vuelo);
+                newAssignment.setVuelo(this.vuelo);
                 newAssignment.setPosicionSeguridad(necesidad.getPosicion());
                 newAssignment.setAgente(event.getValue());
                 newAssignment.setEstado("ASIGNADO");
                 newAssignment.setFechaAsignacion(vuelo.getFechaHoraLlegada().toLocalDate());
                 workingCopyAssignments.add(newAssignment);
-                refreshAssignmentsView(); // Redibuja la UI
+                refreshAssignmentsView();
             }
         });
         return comboBox;
@@ -132,10 +143,15 @@ public class AssignmentDialog extends Dialog {
     }
 
     private void save() {
-        schedulerService.updateAssignmentsForVuelo(vuelo, workingCopyAssignments);
-        if (onSave != null) {
-            onSave.run(); // Ejecuta el callback para refrescar el dashboard
+        try {
+            schedulerService.updateAssignmentsForVuelo(vuelo, workingCopyAssignments);
+            if (onSave != null) {
+                onSave.run();
+            }
+            close();
+        } catch (Exception e) {
+             Notification.show("Error al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_START)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
-        close();
     }
 }

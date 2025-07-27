@@ -1,10 +1,10 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull; // Importa NotNull
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import java.util.HashSet;
 import java.util.Set;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -13,12 +13,9 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = "aerolinea") // Excluir relaciones perezosas
-@EqualsAndHashCode(exclude = "aerolinea")
+@ToString(exclude = {"aerolinea", "necesidades", "assignments"}) // Excluir todas las colecciones
+@EqualsAndHashCode(exclude = {"aerolinea", "necesidades", "assignments"}) // Excluir todas las colecciones
 public class Vuelo {
-
-    @OneToMany(mappedBy = "vuelo", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-private Set<NecesidadVuelo> necesidades;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,26 +40,48 @@ private Set<NecesidadVuelo> necesidades;
 
     @NotNull
     @Column(nullable = false)
-    private LocalDateTime fechaHoraSalida; // Hora programada de salida (ETA si es solo llegada?) Podríamos necesitar ajustar
+    private LocalDateTime fechaHoraSalida;
 
     @NotNull
     @Column(nullable = false)
-    private LocalDateTime fechaHoraLlegada; // Hora programada de llegada (ETD si es solo salida?)
+    private LocalDateTime fechaHoraLlegada;
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoVuelo estado;
 
-    // --- NUEVOS CAMPOS ---
     @NotNull(message = "Debe especificar el tipo de operación.")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private TipoOperacionVuelo tipoOperacion; //esto hace referencia a la clase  // LLEGADA, SALIDA, TRANSITO, RON
+    private TipoOperacionVuelo tipoOperacion;
 
-    @Column // Puede ser nulo inicialmente, se actualiza al finalizar operación
-    private LocalDateTime finOperacionSeguridad; // Hora real/estimada fin cobertura seguridad completa
-    // --- FIN NUEVOS CAMPOS ---
+    @Column
+    private LocalDateTime finOperacionSeguridad;
+    
+    // --- RELACIONES ---
 
-    // Podríamos añadir más campos como: Matrícula Aeronave, Puerta Asignada, etc. más adelante.
+    @OneToMany(mappedBy = "vuelo", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    private Set<NecesidadVuelo> necesidades = new HashSet<>();
+
+    /**
+     * CAMBIO CLAVE: Relación bidireccional con Assignment.
+     * - cascade = CascadeType.ALL: Cualquier cambio en Vuelo (guardar, borrar) se propaga a sus Assignments.
+     * - orphanRemoval = true: Si un Assignment se elimina de esta colección, se borrará de la base de datos.
+     * Esto centraliza la gestión de la persistencia en la entidad Vuelo.
+     */
+    @OneToMany(mappedBy = "vuelo", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private Set<Assignment> assignments = new HashSet<>();
+
+    // --- MÉTODOS DE AYUDA PARA SINCRONIZAR LA RELACIÓN ---
+    
+    public void addAssignment(Assignment assignment) {
+        assignments.add(assignment);
+        assignment.setVuelo(this);
+    }
+
+    public void removeAssignment(Assignment assignment) {
+        assignments.remove(assignment);
+        assignment.setVuelo(null);
+    }
 }
