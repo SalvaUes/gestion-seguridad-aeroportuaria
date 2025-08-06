@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface VueloRepository extends JpaRepository<Vuelo, Long> {
 
-    // --- MÉTODOS EXISTENTES QUE YA CORREGIMOS ---
+    // --- MÉTODOS EXISTENTES ---
 
     @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea ORDER BY v.fechaHoraLlegada DESC")
     List<Vuelo> findAllFetchingAerolinea();
@@ -21,13 +21,6 @@ public interface VueloRepository extends JpaRepository<Vuelo, Long> {
     @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea WHERE v.fechaHoraLlegada BETWEEN :inicio AND :fin OR v.fechaHoraSalida BETWEEN :inicio AND :fin")
     List<Vuelo> findVuelosInPeriodFetchingAerolinea(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
-    // --- MÉTODO NUEVO PARA CORREGIR EL ERROR ACTUAL ---
-
-    /**
-     * Resuelve el error 'findByDateRangeAndNumeroVueloFetchingAerolinea is undefined'.
-     * Busca vuelos en un rango de fechas y, opcionalmente, filtra por número de vuelo.
-     * La consulta maneja el caso en que el número de vuelo sea nulo o vacío.
-     */
     @Query("SELECT v FROM Vuelo v JOIN FETCH v.aerolinea " +
            "WHERE (v.fechaHoraLlegada BETWEEN :startDate AND :endDate OR v.fechaHoraSalida BETWEEN :startDate AND :endDate) " +
            "AND (:numeroVuelo IS NULL OR :numeroVuelo = '' OR lower(v.numeroVuelo) LIKE lower(concat('%', :numeroVuelo, '%'))) " +
@@ -38,8 +31,6 @@ public interface VueloRepository extends JpaRepository<Vuelo, Long> {
             @Param("numeroVuelo") String numeroVuelo
     );
     
-    // --- MÉTODO EXISTENTE PARA OBTENER DETALLES COMPLETOS ---
-
     @Query("SELECT v FROM Vuelo v " +
            "LEFT JOIN FETCH v.aerolinea " +
            "LEFT JOIN FETCH v.necesidades n " +
@@ -49,4 +40,16 @@ public interface VueloRepository extends JpaRepository<Vuelo, Long> {
            "LEFT JOIN FETCH a.posicionSeguridad " +
            "WHERE v.idVuelo = :id")
     Optional<Vuelo> findByIdWithFullDetails(@Param("id") Long id);
+
+    boolean existsByNumeroVueloAndFechaHoraSalidaBetween(String numeroVuelo, LocalDateTime inicioDia, LocalDateTime finDia);
+    
+    // --- CAMBIO: Nuevo método para la lógica robusta de generación ---
+    /**
+     * Busca todos los vuelos por su número dentro de un rango de fechas.
+     * @param numeroVuelo El número de vuelo a buscar.
+     * @param start El inicio del rango.
+     * @param end El fin del rango.
+     * @return Una lista de vuelos existentes.
+     */
+    List<Vuelo> findByNumeroVueloAndFechaHoraSalidaBetween(String numeroVuelo, LocalDateTime start, LocalDateTime end);
 }

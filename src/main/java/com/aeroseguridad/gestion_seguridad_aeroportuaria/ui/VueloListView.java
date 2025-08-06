@@ -19,6 +19,7 @@ import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AerolineaServic
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.NecesidadVueloService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.PosicionSeguridadService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.VueloService;
+import com.vaadin.flow.component.UI; // <-- CAMBIO: Importación necesaria
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.datepicker.DatePicker;
@@ -104,7 +105,11 @@ public class VueloListView extends VerticalLayout {
         Button filterButton = new Button("Filtros", VaadinIcon.FILTER.create());
         filterButton.addClickListener(e -> openFiltersDialog());
 
-        HorizontalLayout headerBar = new HorizontalLayout(title, filterButton);
+        // <-- CAMBIO: Botón para navegar a la gestión de plantillas -->
+        Button manageTemplatesButton = new Button("Gestionar Plantillas", VaadinIcon.CALENDAR_CLOCK.create());
+        manageTemplatesButton.addClickListener(e -> UI.getCurrent().navigate(PlantillaVueloListView.class));
+        
+        HorizontalLayout headerBar = new HorizontalLayout(title, filterButton, manageTemplatesButton);
         headerBar.setAlignItems(FlexComponent.Alignment.CENTER);
         headerBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
         headerBar.setWidthFull();
@@ -118,8 +123,32 @@ public class VueloListView extends VerticalLayout {
         fab.addClassName("fab");
         fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
         fab.setAriaLabel("Añadir nuevo vuelo");
-        fab.addClickListener(e -> openVueloEditorDialog(new Vuelo()));
+
+        // <-- CAMBIO: El FAB ahora abre un diálogo de elección -->
+        fab.addClickListener(e -> openCreationChoiceDialog());
         return fab;
+    }
+
+    // <-- CAMBIO: Nuevo método para el diálogo de elección -->
+    private void openCreationChoiceDialog() {
+        Dialog choiceDialog = new Dialog();
+        choiceDialog.setHeaderTitle("Crear Nuevo Vuelo");
+
+        Button createSingleButton = new Button("Crear Vuelo Único", VaadinIcon.PLUS.create(), e -> {
+            openVueloEditorDialog(new Vuelo());
+            choiceDialog.close();
+        });
+        createSingleButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        createSingleButton.getStyle().set("width", "100%");
+
+        Button createFromTemplateButton = new Button("Generar Vuelos desde Plantilla", VaadinIcon.CALENDAR_CLOCK.create(), e -> {
+            UI.getCurrent().navigate(PlantillaVueloListView.class);
+            choiceDialog.close();
+        });
+        createFromTemplateButton.getStyle().set("width", "100%");
+        
+        choiceDialog.add(new VerticalLayout(createSingleButton, createFromTemplateButton));
+        choiceDialog.open();
     }
 
     private void openFiltersDialog() {
@@ -161,7 +190,7 @@ public class VueloListView extends VerticalLayout {
         editorDialog.setDraggable(true);
 
         // Header
-        H2 title = new H2(vuelo.getIdVuelo() == null ? "Nuevo Vuelo" : "Editar Vuelo");
+        H2 title = new H2(vuelo.getIdVuelo() == null ? "Nuevo Vuelo Único" : "Editar Vuelo"); // <-- CAMBIO: Título más específico
         Button closeButton = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> editorDialog.close());
         closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         HorizontalLayout dialogHeader = new HorizontalLayout(title, closeButton);
@@ -277,7 +306,7 @@ public class VueloListView extends VerticalLayout {
             flightCardContainer.add(new Span("No se encontraron vuelos para los criterios seleccionados."));
         } else {
             vuelos.forEach(vuelo -> {
-                VueloCard card = new VueloCard(vuelo, 0);
+                VueloCard card = new VueloCard(vuelo, 0); // Asumiendo que VueloCard existe
                 card.addCardClickListener(e -> openVueloEditorDialog(e.getVuelo()));
                 flightCardContainer.add(card);
             });

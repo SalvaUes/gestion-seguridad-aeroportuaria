@@ -1,16 +1,16 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min; // Para cantidadAgentes
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import jakarta.validation.constraints.AssertTrue; // Para validación fechas
+import jakarta.validation.constraints.AssertTrue;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "necesidades_vuelo", uniqueConstraints = {
-     @UniqueConstraint(columnNames = {"id_vuelo", "id_posicion"})
+    @UniqueConstraint(columnNames = {"id_vuelo", "id_posicion"})
 })
 @Getter
 @Setter
@@ -24,9 +24,10 @@ public class NecesidadVuelo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idNecesidad;
 
-    @NotNull(message = "La necesidad debe estar asociada a un vuelo.")
+    // --- CAMBIO: La necesidad ya no requiere obligatoriamente un vuelo ---
+    // Se ha eliminado la anotación @NotNull de aquí.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_vuelo", nullable = false)
+    @JoinColumn(name = "id_vuelo", nullable = true) // Se cambió nullable a true
     private Vuelo vuelo;
 
     @NotNull(message = "Se debe especificar una posición de seguridad.")
@@ -46,11 +47,8 @@ public class NecesidadVuelo {
     @Column(nullable = false)
     private LocalDateTime finCobertura;
 
-    // --- MÉTODO AssertTrue REACTIVADO ---
     @AssertTrue(message = "La hora de fin de cobertura debe ser posterior a la hora de inicio.")
     private boolean isFinDespuesDeInicio() {
-        // Solo valida si ambas fechas están presentes
         return inicioCobertura == null || finCobertura == null || finCobertura.isAfter(inicioCobertura);
     }
-    // --- FIN MÉTODO REACTIVADO ---
 }
