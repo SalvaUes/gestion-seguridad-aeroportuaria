@@ -21,26 +21,30 @@ public class TurnoService {
 
     private final TurnoRepository turnoRepository;
     private final AgenteRepository agenteRepository;
+    private final PCAService pcaService;
 
     @Transactional(readOnly = true)
     public List<Turno> findTurnosByDateRange(LocalDateTime rangoInicio, LocalDateTime rangoFin) {
         return turnoRepository.findByFechasSolapadasFetchingAgente(rangoInicio, rangoFin);
     }
 
-    // --- NUEVO MÉTODO EN SERVICIO ---
     @Transactional(readOnly = true)
     public List<Turno> findAllTurnosFetchingAgente() {
         return turnoRepository.findAllFetchingAgenteOrderByInicioTurnoAsc();
     }
-    // --- FIN NUEVO MÉTODO ---
 
-    // ... (resto de los métodos del servicio como estaban: findById, save, deleteById, count, etc.) ...
+    // --- MÉTODO REINCORPORADO ---
+    /**
+     * Busca todos los turnos para un agente específico que se solapan con un rango de fechas.
+     * Este método es utilizado por la vista de detalle del planificador.
+     */
     @Transactional(readOnly = true)
     public List<Turno> findTurnosByAgenteAndDateRange(Long idAgente, LocalDateTime rangoInicio, LocalDateTime rangoFin) {
          Agente agente = agenteRepository.findById(idAgente)
-                 .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado con ID: " + idAgente));
+                       .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado con ID: " + idAgente));
          return turnoRepository.findByAgenteAndFechasSolapadas(agente, rangoInicio, rangoFin);
     }
+    // --- FIN DEL MÉTODO REINCORPORADO ---
 
     @Transactional(readOnly = true)
     public Optional<Turno> findById(Long id) {
@@ -52,26 +56,35 @@ public class TurnoService {
         if (turno.getAgente() == null || turno.getAgente().getIdAgente() == null) {
             throw new IllegalArgumentException("El turno debe tener un agente asignado.");
         }
-        Agente agente = turno.getAgente();
+
+        Turno turnoOriginal = null;
+        if (turno.getIdTurno() != null) {
+            turnoOriginal = turnoRepository.findById(turno.getIdTurno())
+                                           .orElse(null); // Usamos orElse(null) para manejar la creación
+        }
+        pcaService.verificarConflictoPorCambioDeTurno(turnoOriginal, turno);
+
         List<Turno> turnosSolapados = turnoRepository.findByAgenteAndFechasSolapadas(
-                agente,
+                turno.getAgente(),
                 turno.getInicioTurno(),
                 turno.getFinTurno()
         );
-        final Long idTurnoActual = turno.getIdTurno();
         boolean haySolapamiento = turnosSolapados.stream()
-                .anyMatch(t -> !Objects.equals(t.getIdTurno(), idTurnoActual));
+                .anyMatch(t -> !Objects.equals(t.getIdTurno(), turno.getIdTurno()));
         if (haySolapamiento) {
-             throw new IllegalArgumentException("El agente ya tiene un turno asignado que se solapa en ese horario.");
+            throw new IllegalArgumentException("El agente ya tiene un turno asignado que se solapa en ese horario.");
         }
+
         return turnoRepository.save(turno);
     }
 
     @Transactional
     public void deleteById(Long id) {
-        if (!turnoRepository.existsById(id)) {
-             throw new EntityNotFoundException("Turno no encontrado con ID: " + id);
-        }
+        Turno turnoABorrar = turnoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Turno no encontrado con ID: " + id));
+
+        pcaService.verificarConflictoPorCambioDeTurno(turnoABorrar, null);
+
         turnoRepository.deleteById(id);
     }
 

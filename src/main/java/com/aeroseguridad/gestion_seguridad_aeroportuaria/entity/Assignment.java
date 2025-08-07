@@ -2,14 +2,7 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 
 import java.time.LocalDate;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 
 
@@ -22,21 +15,27 @@ public class Assignment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vuelo_id", nullable = false)
     private Vuelo vuelo;
 
-    @ManyToOne
-    @JoinColumn(name = "posicion_seguridad_id", nullable = false) // <-- CORRECCIÓN CLAVE
-    private PosicionSeguridad posicionSeguridad; // <-- CORRECCIÓN CLAVE
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "posicion_seguridad_id", nullable = false)
+    private PosicionSeguridad posicionSeguridad;
 
-    @ManyToOne
-    @JoinColumn(name = "agente_id") // Puede ser nulo si hay conflicto
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agente_id") // Puede ser nulo si hay conflicto inicial
     private Agente agente;
     
     @Column(nullable = false)
     private LocalDate fechaAsignacion;
 
-    @Column(nullable = false)
-    private String estado; // ej: "ASIGNADO", "CONFLICTO_NO_CUBIERTO"
+    // --- CAMBIO CLAVE: De String a Enum para el estado ---
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false)
+    private EstadoAsignacion estado;
+
+    // --- NUEVO CAMPO: Para guardar detalles del conflicto ---
+    @Column(name = "detalle_conflicto", length = 500)
+    private String detalleConflicto;
 }

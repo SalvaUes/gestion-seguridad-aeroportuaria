@@ -2,10 +2,12 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
-import com.vaadin.flow.component.html.*;
+import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.shared.Registration;
 
 // CAMBIO: Extender Div en lugar de VerticalLayout para un control más directo

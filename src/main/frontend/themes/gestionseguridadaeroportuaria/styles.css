@@ -1130,3 +1130,312 @@ vaadin-button{border-radius:var(--ap-border-radius);font-weight:var(--ap-font-we
 .progress-bar-na {
     opacity: 0.6;
 }
+
+
+
+
+/* ===================================================================
+ * 11. ESTILOS DEFINITIVOS PARA EL MÓDULO PLANIFICADOR DE TURNOS
+ * =================================================================== */
+
+/* --- Vista Principal: Tarjetas de Agente en la Lista --- */
+
+.planner-agent-card {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--ap-spacing-sm) 0;
+    box-sizing: border-box;
+}
+
+.planner-agent-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: var(--ap-spacing-md);
+    border: 2px solid var(--ap-color-border);
+    flex-shrink: 0; /* Evita que la imagen se encoja */
+}
+
+.planner-agent-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Ocupa el espacio disponible */
+}
+
+.planner-agent-name {
+    font-weight: var(--ap-font-weight-semibold);
+    color: var(--ap-color-text-light-header);
+}
+
+.planner-agent-carnet {
+    font-size: var(--ap-font-size-sm);
+    color: var(--ap-color-text-light-muted);
+}
+
+.planner-badges-layout {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.planner-badges-layout span {
+    padding: 0.25em 0.6em;
+    font-size: 0.75em;
+    font-weight: var(--ap-font-weight-bold);
+    border-radius: var(--ap-border-radius);
+    line-height: 1;
+}
+
+/* --- Vista de Detalle: Calendario basado en Grid --- */
+
+.calendar-grid {
+    border: 1px solid var(--ap-color-border);
+    border-radius: var(--ap-border-radius-lg);
+    overflow: hidden; /* Para que el borde redondeado aplique a las celdas */
+}
+
+.calendar-grid::part(header-cell) {
+    background-color: var(--ap-color-primary-tint);
+    color: var(--ap-color-primary-dark);
+    font-weight: var(--ap-font-weight-bold);
+    text-align: center;
+}
+
+.calendar-grid .day-cell {
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--ap-spacing-sm);
+    border-right: 1px solid var(--ap-color-border-light);
+    border-bottom: 1px solid var(--ap-color-border-light);
+    box-sizing: border-box;
+    position: relative;
+    background-color: var(--ap-color-bg-surface);
+}
+
+.calendar-grid .day-cell.today {
+    background-color: var(--ap-color-primary-alpha);
+}
+
+.calendar-grid .day-cell.not-in-month {
+    background-color: var(--ap-color-border-light);
+    opacity: 0.7;
+}
+
+.calendar-grid .day-number {
+    font-size: var(--ap-font-size-sm);
+    font-weight: var(--ap-font-weight-semibold);
+    margin-bottom: var(--ap-spacing-sm);
+}
+
+.calendar-grid .turno-entry {
+    font-size: var(--ap-font-size-sm);
+    padding: 3px 6px;
+    border-radius: var(--ap-border-radius);
+    margin-bottom: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.calendar-grid .turno-regular {
+    background-color: var(--ap-color-primary);
+    color: white;
+}
+
+.calendar-grid .turno-nocturno {
+    background-color: var(--ap-color-bg-dark-lighter);
+    color: white;
+}
+
+
+/* ===================================================================
+ * 12. ESTILOS DEFINITIVOS E INTEGRADOS PARA PLANIFICADOR
+ * =================================================================== */
+
+/* --- Vista Principal: Tarjetas de Agente en la Lista --- */
+/* Hacemos el selector más específico para que gane a otros estilos */
+.agente-grid .planner-agent-card {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 0.2rem; /* Espaciado interno */
+    box-sizing: border-box;
+}
+
+.agente-grid .planner-agent-image {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.agente-grid .planner-agent-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.agente-grid .planner-agent-name {
+    font-weight: 600;
+}
+
+.agente-grid .planner-agent-carnet {
+    font-size: 0.8rem;
+    color: var(--lumo-secondary-text-color);
+}
+
+.agente-grid .planner-badges-layout {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+
+/* --- Vista de Detalle: Cabecera y Calendario --- */
+.agente-image-detail {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--lumo-contrast-10pct);
+}
+
+.calendar-grid {
+    border: 1px solid var(--lumo-contrast-10pct);
+    border-radius: var(--lumo-border-radius-l);
+    overflow: hidden;
+}
+
+.calendar-grid::part(header-cell) {
+    background-color: var(--lumo-contrast-5pct);
+    font-weight: 600;
+    text-align: center;
+}
+
+.day-cell {
+    height: 110px;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    border-right: 1px solid var(--lumo-contrast-10pct);
+    border-top: 1px solid var(--lumo-contrast-10pct);
+    box-sizing: border-box;
+    position: relative;
+}
+
+.day-cell.not-in-month {
+    background-color: var(--lumo-contrast-5pct);
+}
+
+.day-cell.today {
+    background-color: var(--lumo-primary-color-10pct);
+    font-weight: bold;
+}
+
+.day-number {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.turno-entry {
+    font-size: 0.75rem;
+    padding: 3px 6px;
+    border-radius: var(--lumo-border-radius-s);
+    margin-bottom: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.turno-regular {
+    background-color: var(--ap-color-primary); /* Usando tus variables de tema */
+}
+
+.turno-nocturno {
+    background-color: var(--ap-color-bg-dark-lighter); /* Usando tus variables de tema */
+}
+
+/* ==========================================================
+ * 13. CORRECCIÓN DEFINITIVA PARA OCULTAR CABECERA DEL GRID
+ * ========================================================== */
+.agente-grid::part(header-row) {
+    display: none !important;
+}
+
+
+/* ===================================================================
+ * 14. SOLUCIÓN DEFINITIVA: CUADRÍCULA DE TARJETAS DE AGENTE
+ * =================================================================== */
+
+/* El contenedor principal que se comportará como una cuadrícula responsiva */
+.agent-card-container {
+    display: grid;
+    /* Crea tantas columnas como quepan con un mínimo de 320px de ancho */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem; /* Espacio entre tarjetas */
+    padding-top: 1rem;
+}
+
+/* El estilo de cada tarjeta individual, aprovechando tu tema "AeroPrime" */
+.agent-card-item {
+    background-color: var(--ap-color-bg-surface);
+    border-radius: var(--ap-border-radius-lg);
+    border: 1px solid var(--ap-color-border);
+    padding: var(--ap-spacing-lg);
+    box-shadow: var(--ap-shadow-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+}
+
+.agent-card-item:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--ap-shadow-lg);
+    border-color: var(--ap-color-primary);
+}
+
+.agent-card-item .agent-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: var(--ap-spacing-md);
+    border: 3px solid var(--ap-color-primary-tint);
+}
+
+.agent-card-item .agent-name {
+    font-size: var(--ap-font-size-lg);
+    font-weight: var(--ap-font-weight-semibold);
+    color: var(--ap-color-text-light-header);
+    margin: 0 0 4px 0;
+}
+
+.agent-card-item .agent-carnet {
+    font-size: var(--ap-font-size-sm);
+    color: var(--ap-color-text-light-muted);
+    margin-bottom: var(--ap-spacing-md);
+}
+
+.agent-card-item .badges-layout {
+    display: flex;
+    gap: 0.5rem;
+}

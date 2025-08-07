@@ -8,18 +8,20 @@ import jakarta.validation.constraints.Past;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "agentes") // Mantenemos el nombre de la tabla por ahora para simplicidad
+@Table(name = "agentes")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-// Excluimos las nuevas relaciones recursivas para evitar StackOverflowError
-@ToString(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados"})
-@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados"})
+// Excluimos las nuevas relaciones recursivas Y la nueva lista de plantillas
+@ToString(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados", "plantillas"})
+@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados", "plantillas"})
 public class Agente {
 
     @Id
@@ -64,23 +66,17 @@ public class Agente {
     @Column(nullable = false)
     private Boolean activo = true;
 
-    // --- CAMBIOS ESTRUCTURALES ---
-
-    // 1. NUEVO CAMPO DE ROL
     @NotNull(message = "Debe especificar un rol")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Rol rol;
 
-    // 2. NUEVA RELACIÓN JERÁRQUICA (AUTO-REFERENCIADA)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_superior") // Un agente puede tener un superior (que es otro agente)
+    @JoinColumn(name = "id_superior")
     private Agente superior;
 
-    @OneToMany(mappedBy = "superior", fetch = FetchType.LAZY) // Un agente puede tener muchos subordinados
+    @OneToMany(mappedBy = "superior", fetch = FetchType.LAZY)
     private Set<Agente> subordinados = new HashSet<>();
-
-    // --- RELACIONES EXISTENTES (SIN CAMBIOS) ---
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "agente_habilidades", joinColumns = @JoinColumn(name = "id_agente"), inverseJoinColumns = @JoinColumn(name = "id_posicion"))
@@ -88,6 +84,10 @@ public class Agente {
 
     @OneToMany(mappedBy = "agente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<PermisoAgenteAerolinea> permisosAerolinea = new HashSet<>();
+    
+    // --- NUEVA RELACIÓN A PLANTILLAS DE TURNO ---
+    @OneToMany(mappedBy = "agente", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PlantillaTurno> plantillas = new ArrayList<>();
 
     public String getNombreCompleto() {
         return (nombre != null ? nombre : "") + " " + (apellido != null ? apellido : "");

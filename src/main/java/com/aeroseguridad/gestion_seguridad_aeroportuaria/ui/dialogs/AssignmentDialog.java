@@ -1,9 +1,6 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui.dialogs;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Assignment;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.SchedulerService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -62,10 +59,6 @@ public class AssignmentDialog extends Dialog {
         }
     }
 
-    /**
-    * CÓDIGO RESTAURADO: El cuerpo de este método y el siguiente
-    * ahora está completo y es funcional para construir la UI.
-    */
     private VerticalLayout createPositionRow(NecesidadVuelo necesidad) {
         VerticalLayout positionLayout = new VerticalLayout();
         positionLayout.setSpacing(false);
@@ -129,7 +122,8 @@ public class AssignmentDialog extends Dialog {
                 newAssignment.setVuelo(this.vuelo);
                 newAssignment.setPosicionSeguridad(necesidad.getPosicion());
                 newAssignment.setAgente(event.getValue());
-                newAssignment.setEstado("ASIGNADO");
+                // --- CORRECCIÓN 3: Usar el Enum en lugar de String ---
+                newAssignment.setEstado(EstadoAsignacion.ASIGNADO);
                 newAssignment.setFechaAsignacion(vuelo.getFechaHoraLlegada().toLocalDate());
                 workingCopyAssignments.add(newAssignment);
                 refreshAssignmentsView();
@@ -151,7 +145,7 @@ public class AssignmentDialog extends Dialog {
             close();
         } catch (Exception e) {
              Notification.show("Error al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_START)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 }

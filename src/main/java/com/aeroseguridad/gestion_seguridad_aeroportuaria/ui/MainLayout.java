@@ -1,4 +1,3 @@
-// RUTA: com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/MainLayout.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -19,7 +18,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.HighlightConditions;
-import com.vaadin.flow.router.PageTitle; // <-- IMPORTACIÓN NECESARIA
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.server.VaadinServletRequest;
 
@@ -38,23 +37,13 @@ public class MainLayout extends AppLayout {
             ui.addAfterNavigationListener(this::updatePageTitle);
         });
     }
-    
-    /**
-     * MÉTODO PARA ACTUALIZAR EL TÍTULO (CORREGIDO)
-     */
-    private void updatePageTitle(AfterNavigationEvent event) {
-        // Obtenemos la clase de la vista activa. get(0) es la vista principal.
-        // Se usa .get(0) porque es la vista principal en la cadena de navegación.
-        Class<?> viewClass = event.getActiveChain().get(0).getClass();
-        
-        // Se busca la anotación @PageTitle en la clase de la vista.
-        PageTitle titleAnnotation = viewClass.getAnnotation(PageTitle.class);
 
+    private void updatePageTitle(AfterNavigationEvent event) {
+        Class<?> viewClass = event.getActiveChain().get(0).getClass();
+        PageTitle titleAnnotation = viewClass.getAnnotation(PageTitle.class);
         if (titleAnnotation != null && pageTitle != null) {
-            // Si la anotación existe, usamos su valor para el título.
             pageTitle.setText(titleAnnotation.value());
         } else if (pageTitle != null) {
-            // Si no hay anotación, dejamos el título en blanco o con un valor por defecto.
             pageTitle.setText("AeroPrime");
         }
     }
@@ -92,7 +81,8 @@ public class MainLayout extends AppLayout {
         navLinks.add(
             createMenuLink(MainView.class, "Inicio", VaadinIcon.HOME),
             createMenuLink(AgenteListView.class, "Agentes", VaadinIcon.USERS),
-            createMenuLink(TurnoListView.class, "Turnos", VaadinIcon.CLOCK),
+            createMenuLink(PlanificadorTurnosView.class, "Planificador de Turnos", VaadinIcon.CALENDAR_CLOCK),
+            // createMenuLink(TurnoListView.class, "Turnos", VaadinIcon.CLOCK), 
             createMenuLink(PosicionListView.class, "Posiciones", VaadinIcon.CHECK_SQUARE_O),
             createMenuLink(SupervisoresView.class, "Supervisores", VaadinIcon.USER_CARD),
             createMenuLink(AerolineaListView.class, "Aerolíneas", VaadinIcon.AIRPLANE),
@@ -117,7 +107,7 @@ public class MainLayout extends AppLayout {
         RouterLink link = new RouterLink();
         link.addClassName("vaadin-drawer-item");
 
-        Icon icon = iconName.create();
+        Icon icon = new Icon(iconName);
         Span span = new Span(caption);
         span.addClassName("menu-item-text");
 

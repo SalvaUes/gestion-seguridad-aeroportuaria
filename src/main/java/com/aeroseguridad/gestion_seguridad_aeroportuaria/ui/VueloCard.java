@@ -1,5 +1,7 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import java.time.format.DateTimeFormatter;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
 import com.vaadin.flow.component.ComponentEvent;
@@ -8,13 +10,10 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.shared.Registration;
-
-import java.time.format.DateTimeFormatter;
 
 public class VueloCard extends VerticalLayout {
 

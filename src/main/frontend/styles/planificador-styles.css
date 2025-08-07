@@ -1,0 +1,110 @@
+/* ===================================================================
+ * ESTILOS DEFINITIVOS PARA EL MÓDULO PLANIFICADOR
+ * =================================================================== */
+
+/* --- Vista Principal: Tarjetas de Agente en la Lista --- */
+.planner-agent-card {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 0;
+    box-sizing: border-box;
+}
+
+.planner-agent-image {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.planner-agent-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.planner-agent-name {
+    font-weight: 600;
+}
+
+.planner-agent-carnet {
+    font-size: 0.8rem;
+    color: var(--lumo-secondary-text-color);
+}
+
+.planner-badges-layout {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* --- Vista de Detalle: Cabecera y Calendario --- */
+.agente-image-detail {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--lumo-contrast-10pct);
+}
+
+.calendar-grid {
+    border: 1px solid var(--lumo-contrast-10pct);
+    border-radius: var(--lumo-border-radius-l);
+    overflow: hidden;
+}
+
+.calendar-grid::part(header-cell) {
+    background-color: var(--lumo-contrast-5pct);
+    font-weight: 600;
+    text-align: center;
+}
+
+.day-cell {
+    height: 110px;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    border-right: 1px solid var(--lumo-contrast-10pct);
+    border-top: 1px solid var(--lumo-contrast-10pct);
+    box-sizing: border-box;
+    position: relative;
+}
+
+.day-cell.not-in-month {
+    background-color: var(--lumo-contrast-5pct);
+}
+
+.day-cell.today {
+    background-color: var(--lumo-primary-color-10pct);
+}
+
+.day-number {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.turno-entry {
+    font-size: 0.75rem;
+    padding: 3px 6px;
+    border-radius: var(--lumo-border-radius-s);
+    margin-bottom: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.turno-regular {
+    background-color: var(--lumo-primary-color);
+}
+
+.turno-nocturno {
+    background-color: var(--lumo-contrast-80pct);
+}

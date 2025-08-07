@@ -1,6 +1,7 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.repository;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoTurno;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Turno;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -28,8 +29,13 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
 
     List<Turno> findByAgenteOrderByInicioTurnoAsc(Agente agente);
 
-    // --- NUEVO MÉTODO PARA OBTENER TODOS CON FETCH ---
     @Query("SELECT t FROM Turno t JOIN FETCH t.agente ORDER BY t.inicioTurno ASC")
     List<Turno> findAllFetchingAgenteOrderByInicioTurnoAsc();
-    // --- FIN NUEVO MÉTODO ---
+
+    // --- MÉTODO AÑADIDO PARA LA REGENERACIÓN DE TURNOS ---
+    /**
+     * Borra todos los turnos en estado PROGRAMADO para un agente específico dentro de un rango de fechas.
+     * Esencial para que el PlantillaTurnoService pueda regenerar horarios sin crear duplicados.
+     */
+    void deleteByAgenteAndEstadoTurnoAndInicioTurnoBetween(Agente agente, EstadoTurno estado, LocalDateTime inicioPeriodo, LocalDateTime finPeriodo);
 }

@@ -74,10 +74,12 @@ public class SchedulerServiceImpl implements SchedulerService {
 
                     if (bestFitAgent.isPresent()) {
                         newAssignment.setAgente(bestFitAgent.get());
-                        newAssignment.setEstado("ASIGNADO");
+                        // --- CORRECCIÓN 1: Usar el Enum en lugar de String ---
+                        newAssignment.setEstado(EstadoAsignacion.ASIGNADO);
                         result.getAssignments().add(newAssignment);
                     } else {
-                        newAssignment.setEstado("CONFLICTO_NO_CUBIERTO");
+                        // --- CORRECCIÓN 2: Usar el Enum en lugar de String ---
+                        newAssignment.setEstado(EstadoAsignacion.CONFLICTO_NO_CUBIERTO);
                         result.getConflicts().add(newAssignment);
                     }
                     managedVuelo.addAssignment(newAssignment);
@@ -123,19 +125,12 @@ public class SchedulerServiceImpl implements SchedulerService {
     private boolean isAgentOnShift(Agente agente, LocalDateTime inicioServicio, LocalDateTime finServicio, List<Turno> turnosDelAgente) {
         if (turnosDelAgente == null || turnosDelAgente.isEmpty()) return false;
         
-        // =================================================================================
-        // CAMBIO CLAVE: Lógica de solapamiento en lugar de contención total.
-        // Un agente es válido si su turno (turno.inicio, turno.fin)
-        // se cruza con el servicio requerido (servicio.inicio, servicio.fin).
-        // La fórmula es: turno.inicio < servicio.fin Y turno.fin > servicio.inicio
-        // =================================================================================
         return turnosDelAgente.stream().anyMatch(turno -> 
             turno.getInicioTurno().isBefore(finServicio) && turno.getFinTurno().isAfter(inicioServicio)
         );
     }
 
     private boolean isAgentOnLeave(Agente agente, LocalDateTime inicioServicio, LocalDateTime finServicio, List<Permiso> permisosDelAgente) {
-        // Esta lógica ya era correcta (usaba solapamiento), por lo que se mantiene.
         if (permisosDelAgente == null || permisosDelAgente.isEmpty()) return false;
         return permisosDelAgente.stream().anyMatch(permiso -> 
             permiso.getFechaInicio().isBefore(finServicio) && permiso.getFechaFin().isAfter(inicioServicio)
