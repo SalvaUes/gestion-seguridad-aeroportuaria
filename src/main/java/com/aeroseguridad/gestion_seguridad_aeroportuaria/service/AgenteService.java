@@ -1,9 +1,11 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.service;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AerolineaRepository;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PosicionSeguridadRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,6 +27,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,12 +38,14 @@ public class AgenteService {
 
     private final AgenteRepository agenteRepository;
     private final PosicionSeguridadRepository posicionSeguridadRepository;
+    private final AerolineaRepository aerolineaRepository;
     private final String UPLOAD_DIR_NAME = "agent-photos";
     private Path rootLocation;
 
-    public AgenteService(AgenteRepository agenteRepository, PosicionSeguridadRepository posicionSeguridadRepository) {
+    public AgenteService(AgenteRepository agenteRepository, PosicionSeguridadRepository posicionSeguridadRepository, AerolineaRepository aerolineaRepository) {
         this.agenteRepository = agenteRepository;
         this.posicionSeguridadRepository = posicionSeguridadRepository;
+        this.aerolineaRepository = aerolineaRepository;
     }
 
     @PostConstruct
@@ -55,10 +60,10 @@ public class AgenteService {
         }
     }
 
-    // El método `list` se mantiene por si es usado en otras partes.
     public List<Agente> list(String nombre, Rol rol, Boolean activo) {
         Specification<Agente> spec = (root, query, cb) -> {
             root.fetch("posicionesHabilitadas", JoinType.LEFT);
+            root.fetch("aerolineasPermitidas", JoinType.LEFT);
             List<Predicate> predicates = new ArrayList<>();
             if (StringUtils.hasText(nombre)) {
                 Predicate nombrePredicate = cb.like(cb.lower(root.get("nombre")), "%" + nombre.toLowerCase() + "%");
@@ -77,123 +82,79 @@ public class AgenteService {
         return agenteRepository.findAll(spec);
     }
     
-    // --- MÉTODO ACTUALIZADO PARA USAR LA NUEVA CONSULTA OPTIMIZADA ---
-    public List<Agente> findAllActiveForView(String filter) {
-        if (filter == null || filter.trim().isEmpty()) {
-            return agenteRepository.findAllActivosWithPlantillas();
+    @Transactional
+    public Agente saveAgenteData(Agente agenteFromForm, InputStream fotoInputStream, String nombreArchivoOriginal) {
+        Agente agenteToSave;
+        
+        // Si es una actualización, cargamos la entidad existente.
+        if (agenteFromForm.getIdAgente() != null) {
+            agenteToSave = agenteRepository.findById(agenteFromForm.getIdAgente())
+                .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado: " + agenteFromForm.getIdAgente()));
         } else {
-            return agenteRepository.findActivosByFiltroTexto(filter.trim());
+            agenteToSave = agenteFromForm;
         }
-    }
 
-    // El resto de los métodos del servicio permanecen igual...
-    public List<Agente> findByRol(Rol rol) {
-        return agenteRepository.findByRol(rol);
-    }
+        // Actualizamos todos los campos simples
+        agenteToSave.setNombre(agenteFromForm.getNombre());
+        agenteToSave.setApellido(agenteFromForm.getApellido());
+        agenteToSave.setNumeroCarnet(agenteFromForm.getNumeroCarnet());
+        agenteToSave.setGenero(agenteFromForm.getGenero());
+        agenteToSave.setRol(agenteFromForm.getRol());
+        agenteToSave.setEmail(agenteFromForm.getEmail());
+        agenteToSave.setTelefono(agenteFromForm.getTelefono());
+        agenteToSave.setFechaNacimiento(agenteFromForm.getFechaNacimiento());
+        agenteToSave.setDireccion(agenteFromForm.getDireccion());
+        agenteToSave.setActivo(agenteFromForm.getActivo());
 
-    public List<Agente> findAgentesDisponiblesPorRol(Rol rol) {
-        return agenteRepository.findByRolAndSuperiorIsNull(rol);
-    }
-
-    public List<Agente> findSubordinados(Agente superior) {
-        return agenteRepository.findBySuperior(superior);
-    }
-    
-    @Transactional
-    public Agente asignarSuperior(Agente subordinado, Agente nuevoSuperior) {
-        subordinado.setSuperior(nuevoSuperior);
-        return agenteRepository.save(subordinado);
-    }
-
-    @Transactional
-    public Agente save(Agente agente, InputStream fotoInputStream, String nombreArchivoOriginal) {
-        if (agente.getIdAgente() == null) {
-            agente.setActivo(true);
-        }
-        String oldPhotoPath = agente.getRutaFotografia();
-        if (fotoInputStream != null && nombreArchivoOriginal != null && !nombreArchivoOriginal.isEmpty()) {
+        // Manejamos la foto
+        if (fotoInputStream != null) {
+            borrarFoto(agenteToSave.getRutaFotografia());
             try {
                 String nuevoNombreArchivo = guardarFoto(fotoInputStream, nombreArchivoOriginal);
-                agente.setRutaFotografia(nuevoNombreArchivo);
-                borrarFoto(oldPhotoPath);
+                agenteToSave.setRutaFotografia(nuevoNombreArchivo);
             } catch (IOException e) {
-                throw new RuntimeException("Fallo al guardar la foto: " + nombreArchivoOriginal, e);
+                throw new RuntimeException("Fallo al guardar la nueva foto.", e);
             }
         }
-        return agenteRepository.save(agente);
-    }
-
-    @Transactional
-    public void deleteById(Long id) {
-        Agente agente = agenteRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("No se encontró el Agente con ID: " + id + " para borrar."));
-        String photoFileName = agente.getRutaFotografia();
-        agenteRepository.delete(agente);
-        log.info("Agente con ID {} borrado de la base de datos.", id);
-        borrarFoto(photoFileName);
-    }
-
-    private String guardarFoto(InputStream inputStream, String nombreOriginal) throws IOException {
-        String fileExtension = "";
-        int i = nombreOriginal.lastIndexOf('.');
-        if (i > 0) {
-            fileExtension = nombreOriginal.substring(i);
-        }
-        String nuevoNombreArchivo = UUID.randomUUID().toString() + fileExtension;
-        Path destinationFile = this.rootLocation.resolve(Paths.get(nuevoNombreArchivo)).normalize().toAbsolutePath();
-
-        if (!destinationFile.getParent().equals(this.rootLocation.toAbsolutePath())) {
-            throw new IOException("No se puede guardar el archivo fuera del directorio de carga actual.");
-        }
-
-        Files.copy(inputStream, destinationFile, StandardCopyOption.REPLACE_EXISTING);
-        return nuevoNombreArchivo;
+        
+        return agenteRepository.save(agenteToSave);
     }
     
-    private void borrarFoto(String photoFileName) {
-        if (photoFileName != null && !photoFileName.isEmpty()) {
-            try {
-                Path filePath = this.rootLocation.resolve(photoFileName).normalize();
-                if (Files.exists(filePath)) {
-                    Files.delete(filePath);
-                    log.info("Archivo de foto '{}' borrado con éxito.", photoFileName);
-                }
-            } catch (IOException e) {
-                log.warn("No se pudo borrar el archivo de foto '{}': {}", photoFileName, e.getMessage());
-            }
-        }
-    }
-
-    public Optional<Agente> findById(Long id) {
-        return agenteRepository.findById(id);
-    }
-
-    public Optional<Agente> findByIdFetchingPosiciones(Long id) {
-        return agenteRepository.findByIdFetchingPosiciones(id);
-    }
-
-    public Optional<Agente> findActivoByNumeroCarnet(String numeroCarnet) {
-        if (!StringUtils.hasText(numeroCarnet)) {
-            return Optional.empty();
-        }
-        return agenteRepository.findActivoByNumeroCarnetIgnoreCaseFetchingPosiciones(numeroCarnet.trim());
-    }
-
     @Transactional
-    public void deactivateById(Long id) {
-        // AQUÍ DEBERÍAMOS LLAMAR AL PCA ANTES DE DESACTIVAR
-        // pcaService.verificarConflictoPorDesactivacionAgente(agente);
-        Agente agente = agenteRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado con ID: " + id));
-        agente.setActivo(false);
+    public void sincronizarRelaciones(Long agenteId, Set<PosicionSeguridad> posiciones, Set<Aerolinea> aerolineas) {
+        Agente agente = agenteRepository.findById(agenteId)
+            .orElseThrow(() -> new EntityNotFoundException("Agente no encontrado para sincronizar relaciones: " + agenteId));
+        
+        // Sincroniza las posiciones
+        agente.getPosicionesHabilitadas().clear();
+        if (posiciones != null && !posiciones.isEmpty()) {
+            agente.getPosicionesHabilitadas().addAll(posiciones);
+        }
+
+        // Sincroniza las aerolíneas
+        agente.getAerolineasPermitidas().clear();
+        if (aerolineas != null && !aerolineas.isEmpty()) {
+            agente.getAerolineasPermitidas().addAll(aerolineas);
+        }
+        
+        // Guardamos para persistir los cambios en las tablas de unión
         agenteRepository.save(agente);
     }
 
-    public List<PosicionSeguridad> findAllPosiciones() {
-        return posicionSeguridadRepository.findByActivoTrueOrderByNombrePosicionAsc();
-    }
-
-    public long countAll() {
-        return agenteRepository.count();
-    }
+    // ... (El resto de los métodos se mantienen igual)
+    public List<Agente> findAllActiveForView(String filter) { if (filter == null || filter.trim().isEmpty()) { return agenteRepository.findAllActivosWithPlantillas(); } else { return agenteRepository.findActivosByFiltroTexto(filter.trim()); } }
+    public List<Agente> findByRol(Rol rol) { return agenteRepository.findByRol(rol); }
+    public List<Agente> findAgentesDisponiblesPorRol(Rol rol) { return agenteRepository.findByRolAndSuperiorIsNull(rol); }
+    public List<Agente> findSubordinados(Agente superior) { return agenteRepository.findBySuperior(superior); }
+    @Transactional public Agente asignarSuperior(Agente subordinado, Agente nuevoSuperior) { subordinado.setSuperior(nuevoSuperior); return agenteRepository.save(subordinado); }
+    @Transactional public void deleteById(Long id) { Agente agente = agenteRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("No se encontró el Agente con ID: " + id + " para borrar.")); String photoFileName = agente.getRutaFotografia(); agenteRepository.delete(agente); log.info("Agente con ID {} borrado de la base de datos.", id); borrarFoto(photoFileName); }
+    private String guardarFoto(InputStream inputStream, String nombreOriginal) throws IOException { String fileExtension = ""; int i = nombreOriginal.lastIndexOf('.'); if (i > 0) { fileExtension = nombreOriginal.substring(i); } String nuevoNombreArchivo = UUID.randomUUID().toString() + fileExtension; Path destinationFile = this.rootLocation.resolve(Paths.get(nuevoNombreArchivo)).normalize().toAbsolutePath(); if (!destinationFile.getParent().equals(this.rootLocation.toAbsolutePath())) { throw new IOException("No se puede guardar el archivo fuera del directorio de carga actual."); } Files.copy(inputStream, destinationFile, StandardCopyOption.REPLACE_EXISTING); return nuevoNombreArchivo; }
+    private void borrarFoto(String photoFileName) { if (photoFileName != null && !photoFileName.isEmpty()) { try { Path filePath = this.rootLocation.resolve(photoFileName).normalize(); if (Files.exists(filePath)) { Files.delete(filePath); log.info("Archivo de foto '{}' borrado con éxito.", photoFileName); } } catch (IOException e) { log.warn("No se pudo borrar el archivo de foto '{}': {}", photoFileName, e.getMessage()); } } }
+    public Optional<Agente> findById(Long id) { return agenteRepository.findById(id); }
+    public Optional<Agente> findByIdFetchingPosiciones(Long id) { return agenteRepository.findByIdFetchingPosiciones(id); }
+    public Optional<Agente> findActivoByNumeroCarnet(String numeroCarnet) { if (!StringUtils.hasText(numeroCarnet)) { return Optional.empty(); } return agenteRepository.findActivoByNumeroCarnetIgnoreCaseFetchingPosiciones(numeroCarnet.trim()); }
+    @Transactional public void deactivateById(Long id) { Agente agente = agenteRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("No se encontrado con ID: " + id)); agente.setActivo(false); agenteRepository.save(agente); }
+    public List<PosicionSeguridad> findAllPosiciones() { return posicionSeguridadRepository.findByActivoTrueOrderByNombrePosicionAsc(); }
+    public List<Aerolinea> findAllAerolineas() { return aerolineaRepository.findAllByOrderByNombreAsc(); }
+    public long countAll() { return agenteRepository.count(); }
 }

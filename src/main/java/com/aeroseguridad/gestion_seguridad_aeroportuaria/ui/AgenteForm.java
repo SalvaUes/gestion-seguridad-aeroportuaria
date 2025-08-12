@@ -1,7 +1,7 @@
-// RUTA: src/main/java/com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/AgenteForm.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea; // NUEVA IMPORTACIÓN
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Genero;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
@@ -28,9 +28,9 @@ import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
-import com.vaadin.flow.data.binder.BeanValidationBinder; // NUEVO
-import com.vaadin.flow.data.binder.Binder; // NUEVO
-import com.vaadin.flow.data.binder.ValidationException; // NUEVO
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.shared.Registration;
 
@@ -40,7 +40,7 @@ import java.util.List;
 
 public class AgenteForm extends FormLayout {
 
-    // --- CAMPOS DEL FORMULARIO (Sin cambios) ---
+    // --- CAMPOS DEL FORMULARIO ---
     TextField nombre = new TextField("Nombre");
     TextField apellido = new TextField("Apellido");
     TextField numeroCarnet = new TextField("Número Carnet");
@@ -52,6 +52,8 @@ public class AgenteForm extends FormLayout {
     TextField direccion = new TextField("Dirección");
     Checkbox activo = new Checkbox("Activo");
     CheckboxGroup<PosicionSeguridad> posicionesHabilitadas = new CheckboxGroup<>("Posiciones Habilitadas");
+    // --- NUEVO CAMPO para gestionar permisos de aerolíneas ---
+    CheckboxGroup<Aerolinea> aerolineasPermitidas = new CheckboxGroup<>("Aerolíneas Permitidas");
 
     // --- LÓGICA DE UPLOAD ---
     private MemoryBuffer buffer = new MemoryBuffer();
@@ -63,29 +65,33 @@ public class AgenteForm extends FormLayout {
 
     // --- BOTONES ---
     Button save = new Button("Guardar");
-    // CORRECCIÓN: El texto del botón ahora refleja la acción de borrado permanente.
     Button delete = new Button("Eliminar");
     Button cancel = new Button("Cancelar");
 
-    // NUEVO: Se introduce el Binder de Vaadin para gestionar el estado del formulario.
     private Binder<Agente> binder = new BeanValidationBinder<>(Agente.class);
-    private Agente agenteActual; // Mantenemos la referencia al bean actual
+    private Agente agenteActual;
 
-    public AgenteForm(List<PosicionSeguridad> listaPosicionesDisponibles) {
+    // --- MODIFICADO: Constructor ahora acepta la lista de aerolíneas ---
+    public AgenteForm(List<PosicionSeguridad> listaPosicionesDisponibles, List<Aerolinea> listaAerolineasDisponibles) {
         addClassName("agente-form");
         
-        // MODIFICADO: Se configura el Binder para vincular los campos con el bean.
         configureBinder();
 
         // --- Configuración Campos ---
         genero.setItems(Genero.values());
         rol.setItems(Rol.values());
         rol.setItemLabelGenerator(Rol::getDescripcion);
+        
         posicionesHabilitadas.setItems(listaPosicionesDisponibles);
         posicionesHabilitadas.setItemLabelGenerator(PosicionSeguridad::getNombrePosicion);
         posicionesHabilitadas.addThemeVariants(CheckboxGroupVariant.LUMO_VERTICAL);
 
-        // --- Configuración Upload (sin cambios) ---
+        // --- NUEVA CONFIGURACIÓN para el campo de aerolíneas ---
+        aerolineasPermitidas.setItems(listaAerolineasDisponibles);
+        aerolineasPermitidas.setItemLabelGenerator(Aerolinea::getNombre);
+        aerolineasPermitidas.addThemeVariants(CheckboxGroupVariant.LUMO_VERTICAL);
+
+        // --- Configuración Upload ---
         configureUpload();
 
         previsualizacionFoto.setWidth("100px");
@@ -99,14 +105,14 @@ public class AgenteForm extends FormLayout {
         fotoLayout.setAlignItems(Alignment.CENTER);
 
         // --- Layout del Formulario ---
-        add(rol, nombre, apellido, numeroCarnet, genero, email, telefono, fechaNacimiento, direccion, activo, fotoLayout, posicionesHabilitadas, createButtonsLayout());
+        add(rol, nombre, apellido, numeroCarnet, genero, email, telefono, fechaNacimiento, direccion, activo, fotoLayout, posicionesHabilitadas, aerolineasPermitidas, createButtonsLayout());
         setColspan(rol, 2);
-        setColspan(posicionesHabilitadas, 2);
+        setColspan(posicionesHabilitadas, 1);
+        setColspan(aerolineasPermitidas, 1); // El nuevo campo ocupa 1 columna
         setColspan(direccion, 2);
         setColspan(fotoLayout, 2);
     }
     
-    // NUEVO: Método para encapsular la configuración del Binder.
     private void configureBinder() {
         binder.forField(nombre).asRequired("El nombre no puede estar vacío").bind("nombre");
         binder.forField(apellido).asRequired("El apellido no puede estar vacío").bind("apellido");
@@ -119,8 +125,9 @@ public class AgenteForm extends FormLayout {
         binder.forField(direccion).bind("direccion");
         binder.forField(activo).bind("activo");
         binder.forField(posicionesHabilitadas).bind("posicionesHabilitadas");
+        // --- NUEVO BINDING para el campo de aerolíneas ---
+        binder.forField(aerolineasPermitidas).bind("aerolineasPermitidas");
 
-        // Cuando cualquier valor cambia, se habilita el botón de guardar.
         binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
     }
 
@@ -145,24 +152,17 @@ public class AgenteForm extends FormLayout {
         save.addClickShortcut(Key.ENTER);
         cancel.addClickShortcut(Key.ESCAPE);
 
-        // MODIFICADO: El listener de Guardar ahora usa el Binder.
         save.addClickListener(event -> validateAndSave());
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, agenteActual)));
         cancel.addClickListener(event -> fireEvent(new CloseEvent(this)));
         
         return new HorizontalLayout(save, delete, cancel);
     }
-
-    // MODIFICADO: Lógica de guardado simplificada gracias al Binder.
+    
     private void validateAndSave() {
         try {
-            // El binder escribe los valores de la UI al bean 'agenteActual'.
-            // Si la validación falla, lanza una excepción y no continúa.
             binder.writeBean(agenteActual);
-            
-            // Si la escritura y validación son exitosas, disparamos el evento de guardado.
             fireEvent(new SaveEvent(this, agenteActual, inputStreamArchivoParaGuardar, nombreArchivoOriginalParaGuardar));
-
         } catch (ValidationException e) {
             Notification.show("Hay errores de validación en el formulario.", 3000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -173,13 +173,10 @@ public class AgenteForm extends FormLayout {
         }
     }
 
-    // MODIFICADO: setAgente ahora es mucho más simple.
     public void setAgente(Agente agente) {
         this.agenteActual = agente;
-        // El Binder se encarga de poblar todos los campos vinculados.
         binder.setBean(agente);
 
-        // Reseteamos el estado de la subida de archivos
         this.inputStreamArchivoParaGuardar = null;
         this.nombreArchivoOriginalParaGuardar = null;
         nombreArchivoSubido.setText("");
@@ -188,7 +185,6 @@ public class AgenteForm extends FormLayout {
         boolean isNew = agente == null || agente.getIdAgente() == null;
         
         if (agente == null) {
-            // Si el agente es nulo, el formulario se limpia y los botones se desactivan.
             setVisible(false);
             return;
         }
@@ -196,8 +192,13 @@ public class AgenteForm extends FormLayout {
         setVisible(true);
         nombre.focus();
 
+        // Aseguramos que las colecciones no sean nulas para evitar errores en el binding
         if (agente.getPosicionesHabilitadas() == null) {
             agente.setPosicionesHabilitadas(new HashSet<>());
+        }
+        // --- NUEVA INICIALIZACIÓN para el campo de aerolíneas ---
+        if (agente.getAerolineasPermitidas() == null) {
+            agente.setAerolineasPermitidas(new HashSet<>());
         }
         
         if (!isNew && agente.getRutaFotografia() != null && !agente.getRutaFotografia().isEmpty()) {
@@ -209,7 +210,6 @@ public class AgenteForm extends FormLayout {
             previsualizacionFoto.setVisible(false);
         }
         
-        // La habilitación del botón de guardar es manejada por el status listener del binder
         delete.setEnabled(!isNew);
         activo.setEnabled(!isNew);
     }

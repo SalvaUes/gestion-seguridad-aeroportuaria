@@ -24,20 +24,12 @@ public interface AgenteRepository extends JpaRepository<Agente, Long>, JpaSpecif
     @Query("SELECT a FROM Agente a LEFT JOIN FETCH a.posicionesHabilitadas WHERE a.activo = true AND lower(a.numeroCarnet) = lower(:numeroCarnet)")
     Optional<Agente> findActivoByNumeroCarnetIgnoreCaseFetchingPosiciones(@Param("numeroCarnet") String numeroCarnet);
 
-    @Query("SELECT a FROM Agente a " +
+    @Query("SELECT DISTINCT a FROM Agente a " +
            "LEFT JOIN FETCH a.posicionesHabilitadas " +
-           "LEFT JOIN FETCH a.permisosAerolinea pa " +
-           "LEFT JOIN FETCH pa.aerolinea " +
+           "LEFT JOIN FETCH a.aerolineasPermitidas " +
            "WHERE a.activo = true")
     List<Agente> findActivosWithDetails();
 
-    // --- MÉTODO AÑADIDO PARA LA NUEVA VISTA DE PLANIFICADOR ---
-    /**
-     * Busca agentes activos cuyo nombre, apellido o número de carnet contenga el texto del filtro.
-     * Carga de forma anticipada (fetch) las plantillas para evitar consultas N+1 en la UI.
-     * @param filtro El texto a buscar.
-     * @return Lista de agentes que coinciden con el filtro.
-     */
     @Query("SELECT DISTINCT a FROM Agente a LEFT JOIN FETCH a.plantillas " +
            "WHERE a.activo = true AND (" +
            "lower(a.nombre) LIKE lower(concat('%', :filtro, '%')) OR " +

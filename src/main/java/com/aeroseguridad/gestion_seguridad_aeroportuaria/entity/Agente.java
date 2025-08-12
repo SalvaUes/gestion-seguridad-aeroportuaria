@@ -19,9 +19,9 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-// Excluimos las nuevas relaciones recursivas Y la nueva lista de plantillas
-@ToString(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados", "plantillas"})
-@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "permisosAerolinea", "superior", "subordinados", "plantillas"})
+// --- MODIFICADO: Excluimos la nueva relación 'aerolineasPermitidas' ---
+@ToString(exclude = {"posicionesHabilitadas", "aerolineasPermitidas", "superior", "subordinados", "plantillas"})
+@EqualsAndHashCode(exclude = {"posicionesHabilitadas", "aerolineasPermitidas", "superior", "subordinados", "plantillas"})
 public class Agente {
 
     @Id
@@ -79,11 +79,17 @@ public class Agente {
     private Set<Agente> subordinados = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "agente_habilidades", joinColumns = @JoinColumn(name = "id_agente"), inverseJoinColumns = @JoinColumn(name = "id_posicion"))
+    @JoinTable(name = "agente_habilidades",
+               joinColumns = @JoinColumn(name = "id_agente"),
+               inverseJoinColumns = @JoinColumn(name = "id_posicion"))
     private Set<PosicionSeguridad> posicionesHabilitadas = new HashSet<>();
 
-    @OneToMany(mappedBy = "agente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private Set<PermisoAgenteAerolinea> permisosAerolinea = new HashSet<>();
+    // --- REFACTORIZADO: De @OneToMany a PermisoAgenteAerolinea a @ManyToMany directo con Aerolinea ---
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "agente_permisos_aerolinea",
+               joinColumns = @JoinColumn(name = "id_agente"),
+               inverseJoinColumns = @JoinColumn(name = "id_aerolinea"))
+    private Set<Aerolinea> aerolineasPermitidas = new HashSet<>();
     
     // --- NUEVA RELACIÓN A PLANTILLAS DE TURNO ---
     @OneToMany(mappedBy = "agente", cascade = CascadeType.ALL, orphanRemoval = true)

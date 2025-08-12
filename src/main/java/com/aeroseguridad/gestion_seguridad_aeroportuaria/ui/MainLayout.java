@@ -87,8 +87,7 @@ public class MainLayout extends AppLayout {
             createMenuLink(SupervisoresView.class, "Supervisores", VaadinIcon.USER_CARD),
             createMenuLink(AerolineaListView.class, "Aerolíneas", VaadinIcon.AIRPLANE),
             createMenuLink(VueloListView.class, "Vuelos", VaadinIcon.FLIGHT_TAKEOFF),
-            createMenuLink(PermisoListView.class, "Permisos", VaadinIcon.CALENDAR_USER),
-            createMenuLink(PermisoAgenteAerolineaListView.class, "Permisos Aerolíneas", VaadinIcon.CONNECT)
+            createMenuLink(PermisoListView.class, "Permisos", VaadinIcon.CALENDAR_USER)
         );
 
         Button logoutButton = new Button("Cerrar Sesión", VaadinIcon.SIGN_OUT.create(), e -> logout());

@@ -1,22 +1,26 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.repository;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea; // Importamos la entidad Aerolinea
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
 
+import java.util.List;
+import java.util.Optional; // Importante añadir esta importación
 
+@Repository
+public interface AerolineaRepository extends JpaRepository<Aerolinea, Long> {
 
-@Repository // Indica que es un componente Repositorio de Spring
-public interface AerolineaRepository extends JpaRepository<Aerolinea, Long> { // 2. Extiende JpaRepository
-
-    
     /**
-     * Busca una aerolínea por su código IATA (ignora mayúsculas/minúsculas).
-     * Spring Data JPA implementará este método automáticamente.
-     * @param codigoIata El código IATA a buscar.
+     * Busca todas las aerolíneas y las ordena alfabéticamente por su nombre.
+     * Usado para poblar los ComboBox y CheckboxGroup en la UI.
      */
-    Optional<Aerolinea> findByCodigoIataIgnoreCase(String codigoIata); // Usa IgnoreCase para flexibilidad
-    
+    List<Aerolinea> findAllByOrderByNombreAsc();
+
+    /**
+     * MÉTODO NUEVO: Busca una aerolínea por su código IATA, ignorando mayúsculas/minúsculas.
+     * Resuelve el error en AerolineaService.
+     * Devuelve un Optional porque la búsqueda podría no encontrar resultados.
+     */
+    Optional<Aerolinea> findByCodigoIataIgnoreCase(String codigoIata);
 
 }

@@ -1,14 +1,15 @@
-// RUTA: com/aeroseguridad/gestion_seguridad_aeroportuaria/ui/AgenteListView.java
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
@@ -39,7 +40,7 @@ import jakarta.persistence.EntityNotFoundException;
 public class AgenteListView extends VerticalLayout {
 
     private final AgenteService agenteService;
-    private Div agentContainer; // CAMBIADO a Div para usar Grid CSS
+    private Div agentContainer;
     private AgenteForm form;
 
     private TextField filterText = new TextField("Buscar por nombre");
@@ -52,39 +53,31 @@ public class AgenteListView extends VerticalLayout {
         addClassName("agente-list-view");
         setSizeFull();
         setPadding(false);
-        setSpacing(false); // Evitar espaciado extra del VerticalLayout
+        setSpacing(false);
     }
 
     @PostConstruct
     private void initLayout() {
         createAgentContainer();
         createForm();
-        
         HorizontalLayout headerBar = createHeaderBar();
-        
-        add(headerBar, agentContainer); // Se añade el contenedor directamente
+        add(headerBar, agentContainer);
         updateList();
     }
 
     private HorizontalLayout createHeaderBar() {
-        // ESTA BARRA SE PUEDE ELIMINAR SI EL HEADER DE MainLayout YA ES SUFICIENTE
-        // O MANTENER PARA TÍTULOS Y FILTROS ESPECÍFICOS DE LA VISTA
         H2 title = new H2("Personal Registrado");
         title.getStyle().set("font-size", "var(--lumo-font-size-xxl)").set("margin", "0");
-
         Button filterButton = new Button("Filtros", VaadinIcon.FILTER.create());
         filterButton.addClickListener(e -> openFiltersDialog());
-
         Button addButton = new Button("Nuevo Personal", VaadinIcon.PLUS.create());
         addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addButton.addClickListener(e -> openAgenteFormDialog(new Agente()));
-
         HorizontalLayout headerBar = new HorizontalLayout(title, filterButton, addButton);
         headerBar.setAlignItems(FlexComponent.Alignment.CENTER);
         headerBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
         headerBar.setWidthFull();
         headerBar.getStyle().set("padding", "0 var(--lumo-space-m) var(--lumo-space-l) var(--lumo-space-m)");
-        
         return headerBar;
     }
     
@@ -93,22 +86,13 @@ public class AgenteListView extends VerticalLayout {
             Notification.show("El formulario no está disponible.", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
-
         Dialog dialog = new Dialog();
-        // APLICA EL ANCHO RECOMENDADO PARA EL MODAL
         dialog.setWidth("650px");
-
-        // Crea el header del modal con su clase CSS
         H2 title = new H2(agente.getIdAgente() == null ? "Nuevo Personal" : "Editar Personal");
         Div modalHeader = new Div(title);
         modalHeader.addClassName("form-modal-header");
-
         form.setAgente(agente);
-        
-        // El footer se maneja dentro del AgenteForm para mayor encapsulación
-        // O se puede crear aquí si los botones son genéricos.
         dialog.add(modalHeader, form);
-        
         form.addListener(AgenteForm.SaveEvent.class, event -> {
             boolean success = saveAgente(event);
             if (success) {
@@ -119,13 +103,11 @@ public class AgenteListView extends VerticalLayout {
             confirmAndDeleteAgente(event);
         });
         form.addListener(AgenteForm.CloseEvent.class, event -> dialog.close());
-
         dialog.open();
     }
 
     private void createAgentContainer() {
         agentContainer = new Div();
-        // APLICA LA CLASE PARA LA CUADRÍCULA DE TARJETAS
         agentContainer.addClassName("agent-card-grid");
         agentContainer.setSizeFull();
     }
@@ -154,12 +136,11 @@ public class AgenteListView extends VerticalLayout {
         }
     }
 
-    // ... RESTO DE MÉTODOS (createForm, saveAgente, deleteAgente, etc.) SIN CAMBIOS ...
-    // ... (El código de los otros métodos se mantiene igual que el que proporcionaste)
     private void createForm() {
         try {
             List<PosicionSeguridad> allPosiciones = agenteService.findAllPosiciones();
-            form = new AgenteForm(allPosiciones);
+            List<Aerolinea> allAerolineas = agenteService.findAllAerolineas();
+            form = new AgenteForm(allPosiciones, allAerolineas);
             form.setWidth("100%");
         } catch (Exception e) {
             form = null;
@@ -174,7 +155,14 @@ public class AgenteListView extends VerticalLayout {
 
     private boolean saveAgente(AgenteForm.SaveEvent event) {
         try {
-            agenteService.save(event.getAgente(), event.getFotoStream(), event.getNombreOriginalFoto());
+            // Paso 1: Guardar los datos del agente y la foto.
+            Agente agenteGuardado = agenteService.saveAgenteData(event.getAgente(), event.getFotoStream(), event.getNombreOriginalFoto());
+
+            // Paso 2: Sincronizar las relaciones usando el ID del agente guardado.
+            Set<PosicionSeguridad> posiciones = event.getAgente().getPosicionesHabilitadas();
+            Set<Aerolinea> aerolineas = event.getAgente().getAerolineasPermitidas();
+            agenteService.sincronizarRelaciones(agenteGuardado.getIdAgente(), posiciones, aerolineas);
+            
             updateList();
             Notification.show("Personal guardado.", 2000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             return true;
@@ -205,14 +193,12 @@ public class AgenteListView extends VerticalLayout {
             Notification.show("No hay un registro seleccionado para borrar.", 3000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_WARNING);
             return;
         }
-
         Dialog confirmationDialog = new Dialog();
         confirmationDialog.setHeaderTitle("Confirmar Borrado");
         confirmationDialog.add(new VerticalLayout(
             new Span("¿Estás seguro de que quieres eliminar permanentemente a " + agenteABorrar.getNombreCompleto() + "?"),
             new Span("Esta acción no se puede deshacer.")
         ));
-        
         Button confirmButton = new Button("Borrar", VaadinIcon.TRASH.create(), e -> {
             deleteAgente(agenteABorrar);
             confirmationDialog.close();
@@ -236,7 +222,6 @@ public class AgenteListView extends VerticalLayout {
         }
     }
     
-    // El método openFiltersDialog se mantiene igual que el que proporcionaste
     private void openFiltersDialog() {
         filterText.setPlaceholder("Buscar...");
         rolFilter.setItems(Rol.values());
@@ -248,17 +233,14 @@ public class AgenteListView extends VerticalLayout {
         estadoFilter.setItems(estadoItems.keySet());
         estadoFilter.setItemLabelGenerator(estadoItems::get);
         estadoFilter.setClearButtonVisible(true);
-
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Filtros de Búsqueda");
         dialog.add(new VerticalLayout(filterText, rolFilter, estadoFilter));
-
         Button applyButton = new Button("Aplicar", e -> {
             updateList();
             dialog.close();
         });
         applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        
         Button clearButton = new Button("Limpiar", e -> {
             filterText.clear();
             rolFilter.clear();

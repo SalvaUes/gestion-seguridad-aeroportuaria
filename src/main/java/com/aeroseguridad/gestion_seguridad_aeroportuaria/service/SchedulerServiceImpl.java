@@ -74,11 +74,9 @@ public class SchedulerServiceImpl implements SchedulerService {
 
                     if (bestFitAgent.isPresent()) {
                         newAssignment.setAgente(bestFitAgent.get());
-                        // --- CORRECCIÓN 1: Usar el Enum en lugar de String ---
                         newAssignment.setEstado(EstadoAsignacion.ASIGNADO);
                         result.getAssignments().add(newAssignment);
                     } else {
-                        // --- CORRECCIÓN 2: Usar el Enum en lugar de String ---
                         newAssignment.setEstado(EstadoAsignacion.CONFLICTO_NO_CUBIERTO);
                         result.getConflicts().add(newAssignment);
                     }
@@ -104,11 +102,10 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         return todosAgentes.stream()
             .filter(agente -> !agentesYaAsignadosIds.contains(agente.getIdAgente()))
-            .filter(agente -> {
-                if (agente.getPermisosAerolinea() == null) return false;
-                return agente.getPermisosAerolinea().stream()
-                        .anyMatch(permiso -> permiso.getAerolinea().getIdAerolinea().equals(vuelo.getAerolinea().getIdAerolinea()));
-            })
+            
+            // --- REFACTORIZADO: Lógica de filtro de aerolínea simplificada y más eficiente ---
+            .filter(agente -> agente.getAerolineasPermitidas() != null && agente.getAerolineasPermitidas().contains(vuelo.getAerolinea()))
+            
             .filter(agente -> {
                 Genero generoRequerido = posicion.getGeneroRequerido();
                 return generoRequerido == Genero.OTRO || agente.getGenero() == generoRequerido;
