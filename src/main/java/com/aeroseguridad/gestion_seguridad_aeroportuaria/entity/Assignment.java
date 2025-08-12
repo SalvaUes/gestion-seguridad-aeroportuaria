@@ -1,10 +1,8 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.entity;
 
 import java.time.LocalDate;
-
 import jakarta.persistence.*;
 import lombok.Data;
-
 
 @Entity
 @Data
@@ -24,18 +22,21 @@ public class Assignment {
     private PosicionSeguridad posicionSeguridad;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agente_id") // Puede ser nulo si hay conflicto inicial
+    @JoinColumn(name = "agente_id")
     private Agente agente;
     
     @Column(nullable = false)
     private LocalDate fechaAsignacion;
 
-    // --- CAMBIO CLAVE: De String a Enum para el estado ---
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false)
     private EstadoAsignacion estado;
 
-    // --- NUEVO CAMPO: Para guardar detalles del conflicto ---
+    // --- CAMPO REFACTORIZADO: Ahora guardamos el TIPO de conflicto ---
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_conflicto") // Puede ser nulo si no hay conflicto
+    private TipoConflicto tipoConflicto;
+
     @Column(name = "detalle_conflicto", length = 500)
     private String detalleConflicto;
 }

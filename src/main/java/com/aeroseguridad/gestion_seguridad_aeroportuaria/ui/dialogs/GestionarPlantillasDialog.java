@@ -17,12 +17,16 @@ public class GestionarPlantillasDialog extends Dialog {
 
     private final PlantillaTurnoService plantillaTurnoService;
     private final Agente agente;
+    // --- 1. NUEVO CAMPO para guardar la función de refresco ---
+    private final Runnable onDialogCloseCallback;
 
     private Grid<PlantillaTurno> plantillasGrid = new Grid<>(PlantillaTurno.class, false);
 
-    public GestionarPlantillasDialog(Agente agente, PlantillaTurnoService plantillaTurnoService) {
+    // --- 2. CONSTRUCTOR ACTUALIZADO para aceptar el tercer parámetro ---
+    public GestionarPlantillasDialog(Agente agente, PlantillaTurnoService plantillaTurnoService, Runnable onDialogCloseCallback) {
         this.agente = agente;
         this.plantillaTurnoService = plantillaTurnoService;
+        this.onDialogCloseCallback = onDialogCloseCallback;
 
         setHeaderTitle("Gestionar Plantillas para " + agente.getNombreCompleto());
         setWidth("800px");
@@ -34,6 +38,13 @@ public class GestionarPlantillasDialog extends Dialog {
         getFooter().add(new Button("Cerrar", e -> close()));
 
         refreshGrid();
+
+        // --- 3. NUEVO LISTENER que ejecuta el refresco cuando el diálogo se cierra ---
+        this.addOpenedChangeListener(event -> {
+            if (!event.isOpened()) {
+                onDialogCloseCallback.run();
+            }
+        });
     }
 
     private void configureGrid() {
@@ -68,7 +79,6 @@ public class GestionarPlantillasDialog extends Dialog {
     }
 
     private void deletePlantilla(PlantillaTurno plantilla) {
-        // Aquí se podría añadir un diálogo de confirmación si se desea
         plantillaTurnoService.deletePlantilla(plantilla.getId());
         refreshGrid();
         Notification.show("Plantilla eliminada.", 2000, Notification.Position.BOTTOM_CENTER);

@@ -24,10 +24,8 @@ public class NecesidadVuelo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idNecesidad;
 
-    // --- CAMBIO: La necesidad ya no requiere obligatoriamente un vuelo ---
-    // Se ha eliminado la anotación @NotNull de aquí.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_vuelo", nullable = true) // Se cambió nullable a true
+    @JoinColumn(name = "id_vuelo", nullable = true)
     private Vuelo vuelo;
 
     @NotNull(message = "Se debe especificar una posición de seguridad.")
@@ -46,6 +44,17 @@ public class NecesidadVuelo {
     @NotNull(message = "La hora de fin de cobertura es obligatoria.")
     @Column(nullable = false)
     private LocalDateTime finCobertura;
+
+    // --- NUEVOS CAMPOS PARA ASIGNACIONES SECUENCIALES ---
+
+    @Min(value = 1, message = "La secuencia debe ser al menos 1.")
+    @Column(nullable = false)
+    private int secuencia = 1;
+
+    @Column(nullable = false)
+    private boolean permiteAgenteAsignado = false;
+
+    // --- FIN DE NUEVOS CAMPOS ---
 
     @AssertTrue(message = "La hora de fin de cobertura debe ser posterior a la hora de inicio.")
     private boolean isFinDespuesDeInicio() {

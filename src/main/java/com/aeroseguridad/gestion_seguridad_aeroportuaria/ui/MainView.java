@@ -1,9 +1,22 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 
+import java.io.ByteArrayInputStream;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleRequest;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleResult;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Assignment;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoAsignacion;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.DashboardStateService;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.EmailService;
@@ -33,19 +46,8 @@ import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
-import jakarta.annotation.security.PermitAll;
-import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.ByteArrayInputStream;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import jakarta.annotation.security.PermitAll;
 
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Dashboard | Gestión Seguridad")
@@ -65,7 +67,6 @@ public class MainView extends VerticalLayout {
     private final MenuBar downloadMenu;
     private final Anchor downloadAnchor;
 
-    // --- NUEVOS COMPONENTES PARA EL PANEL DE CONFLICTOS ---
     private final VerticalLayout conflictPanel;
     private final Grid<Assignment> conflictGrid;
 
@@ -107,7 +108,6 @@ public class MainView extends VerticalLayout {
         HorizontalLayout controlsLayout = new HorizontalLayout(startDatePicker, endDatePicker, generateScheduleButton, downloadMenu, downloadAnchor);
         controlsLayout.setAlignItems(Alignment.BASELINE);
         
-        // --- INICIALIZACIÓN DEL PANEL DE CONFLICTOS ---
         conflictPanel = new VerticalLayout();
         conflictGrid = new Grid<>(Assignment.class, false);
         configureConflictPanel();
@@ -119,7 +119,7 @@ public class MainView extends VerticalLayout {
     }
     
     private void configureConflictPanel() {
-        conflictPanel.setVisible(false); // Oculto por defecto
+        conflictPanel.setVisible(false);
         conflictPanel.setWidthFull();
         conflictPanel.setPadding(true);
         conflictPanel.getStyle()
@@ -136,35 +136,43 @@ public class MainView extends VerticalLayout {
     }
     
     private void configureConflictGrid() {
-        conflictGrid.addColumn(a -> a.getVuelo().getNumeroVuelo()).setHeader("Vuelo");
-        conflictGrid.addColumn(a -> a.getPosicionSeguridad().getNombrePosicion()).setHeader("Posición");
-        conflictGrid.addColumn(a -> formatConflictReason(a.getEstado())).setHeader("Causa del Conflicto");
+        // --- COLUMNAS REFACTORIZADAS PARA MOSTRAR LA INTELIGENCIA DEL BACKEND ---
+        conflictGrid.addColumn(a -> a.getVuelo().getNumeroVuelo()).setHeader("Vuelo").setFlexGrow(0).setWidth("100px");
+        conflictGrid.addColumn(a -> a.getPosicionSeguridad().getNombrePosicion()).setHeader("Posición").setFlexGrow(0).setWidth("150px");
+        
+        // Esta es la columna clave: ahora muestra la causa real.
+        conflictGrid.addColumn(assignment -> {
+            if (assignment.getTipoConflicto() != null) {
+                // Usamos la descripción del Enum como título principal
+                return assignment.getTipoConflicto().getDescripcion();
+            }
+            return "Causa no especificada";
+        }).setHeader("Causa Principal").setFlexGrow(1);
+
+        // Añadimos una columna para el detalle específico generado por el motor de análisis.
+        conflictGrid.addColumn(Assignment::getDetalleConflicto).setHeader("Detalle").setFlexGrow(2);
         
         conflictGrid.addComponentColumn(assignment -> {
             Button resolveButton = new Button("Resolver", e -> {
-                // Reutilizamos la lógica de las VueloCards para abrir el diálogo de asignación
+                // La lógica para resolver se mantiene igual
                 List<Assignment> allAssignmentsForVuelo = dashboardStateService.getLastResult().getAssignments().stream()
                     .filter(a -> a.getVuelo().equals(assignment.getVuelo()))
                     .collect(Collectors.toList());
                 
                 AssignmentDialog dialog = new AssignmentDialog(assignment.getVuelo(), allAssignmentsForVuelo, schedulerService);
-                dialog.addSaveListener(this::generateSchedule); // Recalcula el horario al guardar
+                dialog.addSaveListener(this::generateSchedule);
                 dialog.open();
             });
             return resolveButton;
-        }).setHeader("Acción");
+        }).setHeader("Acción").setFlexGrow(0).setWidth("120px");
     }
 
+    // --- ESTE MÉTODO YA NO ES NECESARIO ---
+    /*
     private String formatConflictReason(EstadoAsignacion estado) {
-        switch (estado) {
-            case CONFLICTO_AGENTE_NO_DISPONIBLE: return "Agente no disponible (turno modificado/eliminado)";
-            case CONFLICTO_PERMISO_APROBADO: return "Agente con permiso aprobado";
-            case CONFLICTO_SIN_CUALIFICACION: return "Agente sin cualificación requerida";
-            case CONFLICTO_AGENTE_INACTIVO_O_SIN_PERMISO: return "Agente inactivo o sin permiso para la aerolínea";
-            case CONFLICTO_NO_CUBIERTO: return "No se encontró personal disponible";
-            default: return "Conflicto desconocido";
-        }
+        // ...
     }
+    */
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
@@ -195,6 +203,7 @@ public class MainView extends VerticalLayout {
                 ui.access(() -> updateUiWithResults(result));
             } catch (Exception e) {
                 ui.access(() -> Notification.show("Error inesperado: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR));
+                e.printStackTrace(); // Es útil para depurar en el servidor
             } finally {
                 ui.access(() -> setUiStateToProcessing(false));
             }
@@ -209,7 +218,7 @@ public class MainView extends VerticalLayout {
         if (isProcessing) {
             Notification.show("Iniciando la generación del horario...", 2000, Notification.Position.BOTTOM_CENTER);
             vueloCardContainer.removeAll();
-            conflictPanel.setVisible(false); // Ocultamos el panel de conflictos mientras se procesa
+            conflictPanel.setVisible(false);
         }
     }
 
@@ -217,7 +226,6 @@ public class MainView extends VerticalLayout {
         vueloCardContainer.removeAll();
         downloadMenu.setEnabled(result != null && !result.getAssignments().isEmpty());
         
-        // --- LÓGICA PARA MOSTRAR/OCULTAR Y RELLENAR EL PANEL DE CONFLICTOS ---
         if (result.getConflicts() != null && !result.getConflicts().isEmpty()) {
             conflictGrid.setItems(result.getConflicts());
             conflictPanel.setVisible(true);
@@ -226,11 +234,11 @@ public class MainView extends VerticalLayout {
         }
 
         Map<Vuelo, List<Assignment>> assignmentsByVuelo = result.getAssignments().stream()
-                .collect(Collectors.groupingBy(Assignment::getVuelo));
+            .collect(Collectors.groupingBy(Assignment::getVuelo));
 
         Set<Vuelo> allVuelos = Stream.concat(
-                result.getAssignments().stream().map(Assignment::getVuelo),
-                result.getConflicts().stream().map(Assignment::getVuelo)
+            result.getAssignments().stream().map(Assignment::getVuelo),
+            result.getConflicts().stream().map(Assignment::getVuelo)
         ).collect(Collectors.toSet());
 
         if (allVuelos.isEmpty()) {
@@ -239,15 +247,21 @@ public class MainView extends VerticalLayout {
         }
 
         allVuelos.stream()
-            .sorted((v1, v2) -> v1.getFechaHoraLlegada().compareTo(v2.getFechaHoraLlegada()))
+            .sorted(Comparator.comparing(Vuelo::getFechaHoraLlegada))
             .forEach(vuelo -> {
                 List<Assignment> assignmentsForThisVuelo = assignmentsByVuelo.getOrDefault(vuelo, List.of());
-                int personalAsignado = assignmentsForThisVuelo.size();
+                int personalAsignado = (int) assignmentsForThisVuelo.stream().filter(a -> a.getAgente() != null).count();
                 
                 VueloCard card = new VueloCard(vuelo, personalAsignado);
                 
                 card.addCardClickListener(event -> {
-                    AssignmentDialog dialog = new AssignmentDialog(event.getVuelo(), assignmentsForThisVuelo, schedulerService);
+                    // Combinamos las asignaciones exitosas y los conflictos para este vuelo
+                    List<Assignment> allAssignmentsAndConflictsForVuelo = Stream.concat(
+                        dashboardStateService.getLastResult().getAssignments().stream(),
+                        dashboardStateService.getLastResult().getConflicts().stream()
+                    ).filter(a -> a.getVuelo().equals(event.getVuelo())).collect(Collectors.toList());
+
+                    AssignmentDialog dialog = new AssignmentDialog(event.getVuelo(), allAssignmentsAndConflictsForVuelo, schedulerService);
                     dialog.addSaveListener(this::generateSchedule);
                     dialog.open();
                 });
@@ -256,23 +270,19 @@ public class MainView extends VerticalLayout {
             });
     }
 
-    // ... (downloadReport y openShareDialog se mantienen igual)
     private void downloadReport(String format) {
         ScheduleResult data = dashboardStateService.getLastResult();
         if (data == null || data.getAssignments().isEmpty()) {
             Notification.show("Primero debe generar un horario con asignaciones.", 3000, Notification.Position.BOTTOM_CENTER);
             return;
         }
-
         String fileName = "Horario_Seguridad_" + LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE) + "." + format;
-        
         StreamResource streamResource = new StreamResource(fileName, () -> {
             byte[] reportBytes = "pdf".equals(format) ?
                 reportService.generatePdfReport(data) :
                 reportService.generateExcelReport(data);
             return new ByteArrayInputStream(reportBytes);
         });
-
         downloadAnchor.setHref(streamResource);
         downloadAnchor.getElement().callJsFunction("click");
     }
