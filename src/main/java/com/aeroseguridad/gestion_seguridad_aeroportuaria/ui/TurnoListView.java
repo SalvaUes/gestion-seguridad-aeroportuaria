@@ -18,14 +18,14 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.data.provider.ListDataProvider;
+ 
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
@@ -46,7 +46,7 @@ public class TurnoListView extends VerticalLayout {
 
     private Grid<Turno> grid = new Grid<>(Turno.class, false);
     private TurnoForm form;
-    private ListDataProvider<Turno> dataProvider;
+    
 
     // Componentes de Filtro
     private DatePicker fechaInicioFiltro = new DatePicker("Fecha Desde");
@@ -54,7 +54,6 @@ public class TurnoListView extends VerticalLayout {
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    @Autowired
     public TurnoListView(TurnoService turnoService, AgenteService agenteService) {
         this.agenteService = agenteService;
         this.turnoService = turnoService;

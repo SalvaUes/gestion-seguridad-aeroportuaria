@@ -15,12 +15,15 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 
 public class GestionarPlantillasDialog extends Dialog {
 
+    private static final long serialVersionUID = 1L;
+
     private final PlantillaTurnoService plantillaTurnoService;
     private final Agente agente;
     // --- 1. NUEVO CAMPO para guardar la función de refresco ---
-    private final Runnable onDialogCloseCallback;
+    @SuppressWarnings("unused")
+    private final transient Runnable onDialogCloseCallback;
 
-    private Grid<PlantillaTurno> plantillasGrid = new Grid<>(PlantillaTurno.class, false);
+    private final Grid<PlantillaTurno> plantillasGrid = new Grid<>(PlantillaTurno.class, false);
 
     // --- 2. CONSTRUCTOR ACTUALIZADO para aceptar el tercer parámetro ---
     public GestionarPlantillasDialog(Agente agente, PlantillaTurnoService plantillaTurnoService, Runnable onDialogCloseCallback) {
@@ -42,7 +45,8 @@ public class GestionarPlantillasDialog extends Dialog {
         // --- 3. NUEVO LISTENER que ejecuta el refresco cuando el diálogo se cierra ---
         this.addOpenedChangeListener(event -> {
             if (!event.isOpened()) {
-                onDialogCloseCallback.run();
+                Runnable cb = this.onDialogCloseCallback;
+                if (cb != null) cb.run();
             }
         });
     }

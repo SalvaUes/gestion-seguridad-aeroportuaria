@@ -3,13 +3,11 @@ package com.aeroseguridad.gestion_seguridad_aeroportuaria.ui;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Rol;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.service.AgenteService;
@@ -29,6 +27,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.shared.Registration;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
@@ -47,7 +46,6 @@ public class AgenteListView extends VerticalLayout {
     private ComboBox<Rol> rolFilter = new ComboBox<>("Rol");
     private ComboBox<Boolean> estadoFilter = new ComboBox<>("Estado");
 
-    @Autowired
     public AgenteListView(AgenteService agenteService) {
         this.agenteService = agenteService;
         addClassName("agente-list-view");
@@ -60,6 +58,7 @@ public class AgenteListView extends VerticalLayout {
     private void initLayout() {
         createAgentContainer();
         createForm();
+        configureFormListeners(); // Centralizamos los listeners del formulario
         HorizontalLayout headerBar = createHeaderBar();
         add(headerBar, agentContainer);
         updateList();
@@ -72,7 +71,7 @@ public class AgenteListView extends VerticalLayout {
         filterButton.addClickListener(e -> openFiltersDialog());
         Button addButton = new Button("Nuevo Personal", VaadinIcon.PLUS.create());
         addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addButton.addClickListener(e -> openAgenteFormDialog(new Agente()));
+        addButton.addClickListener(e -> addAgente()); // Cambiado para llamar a un método más simple
         HorizontalLayout headerBar = new HorizontalLayout(title, filterButton, addButton);
         headerBar.setAlignItems(FlexComponent.Alignment.CENTER);
         headerBar.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
@@ -86,23 +85,30 @@ public class AgenteListView extends VerticalLayout {
             Notification.show("El formulario no está disponible.", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
+        
         Dialog dialog = new Dialog();
         dialog.setWidth("650px");
         H2 title = new H2(agente.getIdAgente() == null ? "Nuevo Personal" : "Editar Personal");
         Div modalHeader = new Div(title);
         modalHeader.addClassName("form-modal-header");
+        
         form.setAgente(agente);
+        
+        // El formulario ahora se añade al diálogo, y los listeners ya están configurados a nivel de vista.
         dialog.add(modalHeader, form);
-        form.addListener(AgenteForm.SaveEvent.class, event -> {
-            boolean success = saveAgente(event);
-            if (success) {
-                dialog.close();
+        
+        // Creamos un registro de listener para cerrar el diálogo que se puede quitar después.
+        Registration closeListener = form.addListener(AgenteForm.CloseEvent.class, event -> dialog.close());
+        Registration saveListener = form.addListener(AgenteForm.SaveEvent.class, event -> dialog.close());
+        
+        // Cuando el diálogo se cierra, eliminamos los listeners para evitar fugas de memoria.
+        dialog.addOpenedChangeListener(e -> {
+            if (!e.isOpened()) {
+                closeListener.remove();
+                saveListener.remove();
             }
         });
-        form.addListener(AgenteForm.DeleteEvent.class, event -> {
-            confirmAndDeleteAgente(event);
-        });
-        form.addListener(AgenteForm.CloseEvent.class, event -> dialog.close());
+
         dialog.open();
     }
 
@@ -149,30 +155,39 @@ public class AgenteListView extends VerticalLayout {
         }
     }
 
+    private void configureFormListeners() {
+        if (form != null) {
+            form.addListener(AgenteForm.SaveEvent.class, this::saveAgente);
+            form.addListener(AgenteForm.DeleteEvent.class, this::confirmAndDeleteAgente);
+            // El evento Close se maneja en el diálogo para cerrarlo.
+        }
+    }
+
     private void addAgente() {
         openAgenteFormDialog(new Agente());
     }
 
-    private boolean saveAgente(AgenteForm.SaveEvent event) {
+    private void saveAgente(AgenteForm.SaveEvent event) {
         try {
-            // Paso 1: Guardar los datos del agente y la foto.
-            Agente agenteGuardado = agenteService.saveAgenteData(event.getAgente(), event.getFotoStream(), event.getNombreOriginalFoto());
-
-            // Paso 2: Sincronizar las relaciones usando el ID del agente guardado.
-            Set<PosicionSeguridad> posiciones = event.getAgente().getPosicionesHabilitadas();
-            Set<Aerolinea> aerolineas = event.getAgente().getAerolineasPermitidas();
-            agenteService.sincronizarRelaciones(agenteGuardado.getIdAgente(), posiciones, aerolineas);
+            Agente agente = event.getAgente();
+            
+            if (agente.getIdAgente() == null) {
+                // Es un nuevo agente
+                Agente agenteCreado = agenteService.createAgente(agente, event.getFotoStream(), event.getNombreOriginalFoto());
+                agenteService.sincronizarRelaciones(agenteCreado.getIdAgente(), agente.getPosicionesHabilitadas(), agente.getAerolineasPermitidas());
+            } else {
+                // Es una actualización
+                Agente agenteActualizado = agenteService.updateAgente(agente, event.getFotoStream(), event.getNombreOriginalFoto());
+                agenteService.sincronizarRelaciones(agenteActualizado.getIdAgente(), agente.getPosicionesHabilitadas(), agente.getAerolineasPermitidas());
+            }
             
             updateList();
             Notification.show("Personal guardado.", 2000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            return true;
         } catch (DataIntegrityViolationException e) {
             handleDataIntegrityViolation(e, event.getAgente());
-            return false;
         } catch (Exception e) {
             Notification.show("Error inesperado al guardar: " + e.getMessage(), 5000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
             e.printStackTrace();
-            return false;
         }
     }
 
@@ -200,7 +215,7 @@ public class AgenteListView extends VerticalLayout {
             new Span("Esta acción no se puede deshacer.")
         ));
         Button confirmButton = new Button("Borrar", VaadinIcon.TRASH.create(), e -> {
-            deleteAgente(agenteABorrar);
+            deleteAgente(agenteABorrar.getIdAgente()); // Pasamos solo el ID
             confirmationDialog.close();
         });
         confirmButton.addThemeVariants(ButtonVariant.LUMO_ERROR);
@@ -209,9 +224,10 @@ public class AgenteListView extends VerticalLayout {
         confirmationDialog.open();
     }
 
-    private void deleteAgente(Agente agente) {
+    private void deleteAgente(Long agenteId) {
+        if (agenteId == null) return;
         try {
-            agenteService.deleteById(agente.getIdAgente());
+            agenteService.deleteById(agenteId);
             updateList();
             Notification.show("Personal eliminado permanentemente.", 2000, Notification.Position.BOTTOM_CENTER).addThemeVariants(NotificationVariant.LUMO_CONTRAST);
         } catch (EntityNotFoundException enfe) {

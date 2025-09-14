@@ -1,7 +1,11 @@
 {
-  "name": "no-name",
+  "name": "aeroseguridad-frontend",
   "license": "UNLICENSED",
   "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:full": "npx concurrently \"mvn spring-boot:run\" \"npx vite\""
+  },
   "dependencies": {
     "@polymer/polymer": "3.5.1",
     "@vaadin/bundles": "24.4.0",
@@ -29,6 +33,7 @@
     "@types/react-dom": "18.3.0",
     "@vitejs/plugin-react": "4.3.1",
     "async": "3.2.5",
+    "concurrently": "^8.2.2",
     "glob": "10.4.1",
     "rollup-plugin-brotli": "3.1.0",
     "rollup-plugin-visualizer": "5.12.0",
@@ -81,7 +86,7 @@
       "workbox-core": "7.1.0",
       "workbox-precaching": "7.1.0"
     },
-    "hash": "bf7bc0be2bdf72d5f7964d9cc942c98c96eb316cc3c3e8da19d83ded177c4ce7"
+    "hash": "fd2333c2fe5a88df4428f987dd872081edcd7db59c8f63229b26f09ab88df4c2"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",

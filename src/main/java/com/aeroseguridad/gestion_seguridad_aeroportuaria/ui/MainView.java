@@ -12,7 +12,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleRequest;
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleResult;
@@ -70,7 +70,6 @@ public class MainView extends VerticalLayout {
     private final VerticalLayout conflictPanel;
     private final Grid<Assignment> conflictGrid;
 
-    @Autowired
     public MainView(SchedulerService schedulerService, DashboardStateService dashboardStateService, ReportService reportService, EmailService emailService) {
         this.schedulerService = schedulerService;
         this.dashboardStateService = dashboardStateService;

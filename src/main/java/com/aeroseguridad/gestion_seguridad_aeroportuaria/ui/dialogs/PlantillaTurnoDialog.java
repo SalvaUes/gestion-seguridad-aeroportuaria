@@ -28,8 +28,7 @@ import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 
 public class PlantillaTurnoDialog extends Dialog {
-
-    private final Agente agente;
+    
     private PlantillaTurno plantillaTurno;
     private final Consumer<PlantillaTurno> saveListener;
 
@@ -42,7 +41,6 @@ public class PlantillaTurnoDialog extends Dialog {
     private Grid<ReglaDeTurno> reglasGrid = new Grid<>(ReglaDeTurno.class, false);
 
     public PlantillaTurnoDialog(Agente agente, PlantillaTurno plantilla, Consumer<PlantillaTurno> saveListener) {
-        this.agente = agente;
         this.plantillaTurno = plantilla;
         this.saveListener = saveListener;
         

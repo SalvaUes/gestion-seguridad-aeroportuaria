@@ -23,7 +23,7 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Collections;
@@ -40,7 +40,6 @@ public class PosicionListView extends VerticalLayout {
 
     private TextField filterText = new TextField("Buscar por nombre");
 
-    @Autowired
     public PosicionListView(PosicionSeguridadService posicionService) {
         this.posicionService = posicionService;
         addClassName("posicion-list-view");

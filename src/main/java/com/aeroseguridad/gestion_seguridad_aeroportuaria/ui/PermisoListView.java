@@ -25,7 +25,7 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
 import jakarta.validation.ConstraintViolationException;
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,7 +50,6 @@ public class PermisoListView extends VerticalLayout {
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    @Autowired
     public PermisoListView(PermisoService permisoService, AgenteService agenteService) {
         this.permisoService = permisoService;
         this.agenteService = agenteService;

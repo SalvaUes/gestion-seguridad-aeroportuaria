@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 import org.springframework.util.CollectionUtils;
 
 import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
@@ -68,7 +68,6 @@ public class VueloListView extends VerticalLayout {
 
     private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    @Autowired
     public VueloListView(VueloService vueloService, AerolineaService aerolineaService,
                          NecesidadVueloService necesidadService, PosicionSeguridadService posicionService) {
         this.vueloService = vueloService;

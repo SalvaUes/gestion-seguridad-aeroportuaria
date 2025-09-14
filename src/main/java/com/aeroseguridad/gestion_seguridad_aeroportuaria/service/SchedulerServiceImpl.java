@@ -1,23 +1,43 @@
 package com.aeroseguridad.gestion_seguridad_aeroportuaria.service;
 
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleRequest;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleResult;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.*;
-import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.*;
-import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleRequest;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.dto.ScheduleResult;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Aerolinea;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Agente;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Assignment;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoAsignacion;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.EstadoSolicitudPermiso;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Genero;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.NecesidadVuelo;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Permiso;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.PosicionSeguridad;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.TipoConflicto;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Turno;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.entity.Vuelo;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.AgenteRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.PermisoRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.TurnoRepository;
+import com.aeroseguridad.gestion_seguridad_aeroportuaria.repository.VueloRepository;
+
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,7 +50,6 @@ public class SchedulerServiceImpl implements SchedulerService {
     private final TurnoRepository turnoRepository;
     private final PermisoRepository permisoRepository;
 
-    @Autowired
     public SchedulerServiceImpl(VueloRepository vueloRepository, AgenteRepository agenteRepository, TurnoRepository turnoRepository, PermisoRepository permisoRepository) {
         this.vueloRepository = vueloRepository;
         this.agenteRepository = agenteRepository;
@@ -48,7 +67,6 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         List<Vuelo> vuelosEnPeriodo = vueloRepository.findVuelosInPeriodFetchingAerolinea(inicioPeriodo, finPeriodo);
         List<Agente> agentesActivos = agenteRepository.findActivosWithDetails();
-
         Map<Long, List<Turno>> turnosPorAgente = turnoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo).stream()
                 .collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
         Map<Long, List<Permiso>> permisosAprobadosPorAgente = permisoRepository.findByFechasSolapadasFetchingAgente(inicioPeriodo, finPeriodo).stream()
@@ -59,102 +77,105 @@ public class SchedulerServiceImpl implements SchedulerService {
         List<Vuelo> vuelosToSave = new ArrayList<>();
 
         for (Vuelo vuelo : vuelosEnPeriodo) {
-            Vuelo managedVuelo = vueloRepository.findByIdWithFullDetails(vuelo.getIdVuelo()).orElse(vuelo);
-            if (managedVuelo.getNecesidades() == null || managedVuelo.getNecesidades().isEmpty()) continue;
-            managedVuelo.getAssignments().clear();
-
-            for (NecesidadVuelo necesidad : managedVuelo.getNecesidades()) {
-                for (int i = 0; i < necesidad.getCantidadAgentes(); i++) {
-                    List<Assignment> currentAssignmentsInLoop = new ArrayList<>(managedVuelo.getAssignments());
-                    Optional<Agente> bestFitAgent = findBestFitAgentFor(necesidad, agentesActivos, currentAssignmentsInLoop, turnosPorAgente, permisosAprobadosPorAgente);
-
-                    Assignment newAssignment = new Assignment();
-                    newAssignment.setVuelo(managedVuelo);
-                    newAssignment.setPosicionSeguridad(necesidad.getPosicion());
-                    newAssignment.setFechaAsignacion(managedVuelo.getFechaHoraLlegada().toLocalDate());
-
-                    if (bestFitAgent.isPresent()) {
-                        newAssignment.setAgente(bestFitAgent.get());
-                        newAssignment.setEstado(EstadoAsignacion.ASIGNADO);
-                        result.getAssignments().add(newAssignment);
-                    } else {
-                        // --- INICIO DE LA NUEVA LÓGICA DE INTELIGENCIA DE CONFLICTOS ---
-                        newAssignment.setEstado(EstadoAsignacion.CONFLICTO_NO_CUBIERTO);
-
-                        // Analizamos la causa raíz del fallo para obtener un diagnóstico preciso.
-                        Map.Entry<TipoConflicto, String> causa = analizarCausaDeFallo(necesidad, agentesActivos, currentAssignmentsInLoop, turnosPorAgente, permisosAprobadosPorAgente);
-                        newAssignment.setTipoConflicto(causa.getKey());
-                        newAssignment.setDetalleConflicto(causa.getValue());
-
-                        result.getConflicts().add(newAssignment);
-                        // --- FIN DE LA NUEVA LÓGICA ---
-                    }
-                    managedVuelo.addAssignment(newAssignment);
-                }
-            }
-            vuelosToSave.add(managedVuelo);
+            processVuelo(vuelo, agentesActivos, turnosPorAgente, permisosAprobadosPorAgente, result);
+            vuelosToSave.add(vuelo);
         }
 
         vueloRepository.saveAll(vuelosToSave);
         return CompletableFuture.completedFuture(result);
     }
 
+    private void processVuelo(Vuelo vuelo, List<Agente> agentesActivos, Map<Long, List<Turno>> turnosPorAgente, Map<Long, List<Permiso>> permisosAprobadosPorAgente, ScheduleResult result) {
+        Vuelo managedVuelo = vueloRepository.findByIdWithFullDetails(vuelo.getIdVuelo()).orElse(vuelo);
+        if (managedVuelo.getNecesidades() == null || managedVuelo.getNecesidades().isEmpty()) {
+            return;
+        }
+        managedVuelo.getAssignments().clear();
+
+        for (NecesidadVuelo necesidad : managedVuelo.getNecesidades()) {
+            for (int i = 0; i < necesidad.getCantidadAgentes(); i++) {
+                List<Assignment> currentAssignmentsInLoop = new ArrayList<>(managedVuelo.getAssignments());
+                Optional<Agente> bestFitAgent = findBestFitAgentFor(necesidad, agentesActivos, currentAssignmentsInLoop, turnosPorAgente, permisosAprobadosPorAgente);
+
+                Assignment newAssignment = new Assignment();
+                newAssignment.setVuelo(managedVuelo);
+                newAssignment.setPosicionSeguridad(necesidad.getPosicion());
+                newAssignment.setFechaAsignacion(managedVuelo.getFechaHoraLlegada().toLocalDate());
+
+                if (bestFitAgent.isPresent()) {
+                    newAssignment.setAgente(bestFitAgent.get());
+                    newAssignment.setEstado(EstadoAsignacion.ASIGNADO);
+                    result.getAssignments().add(newAssignment);
+                } else {
+                    newAssignment.setEstado(EstadoAsignacion.CONFLICTO_NO_CUBIERTO);
+                    Map.Entry<TipoConflicto, String> causa = analizarCausaDeFallo(necesidad, agentesActivos, currentAssignmentsInLoop, turnosPorAgente, permisosAprobadosPorAgente);
+                    newAssignment.setTipoConflicto(causa.getKey());
+                    newAssignment.setDetalleConflicto(causa.getValue());
+                    result.getConflicts().add(newAssignment);
+                }
+                managedVuelo.addAssignment(newAssignment);
+            }
+        }
+    }
+
     private Optional<Agente> findBestFitAgentFor(NecesidadVuelo necesidad, List<Agente> todosAgentes, List<Assignment> currentAssignmentsInLoop, Map<Long, List<Turno>> turnosPorAgente, Map<Long, List<Permiso>> permisosPorAgente) {
-        Vuelo vuelo = necesidad.getVuelo();
-        PosicionSeguridad posicion = necesidad.getPosicion();
-        LocalDateTime inicioServicio = necesidad.getInicioCobertura();
-        LocalDateTime finServicio = necesidad.getFinCobertura();
-        Set<Long> agentesYaAsignadosIds = currentAssignmentsInLoop.stream().filter(a -> a.getAgente() != null).map(a -> a.getAgente().getIdAgente()).collect(Collectors.toSet());
+        Set<Long> agentesYaAsignadosIds = currentAssignmentsInLoop.stream()
+                .filter(a -> a.getAgente() != null)
+                .map(a -> a.getAgente().getIdAgente())
+                .collect(Collectors.toSet());
 
         return todosAgentes.stream()
             .filter(agente -> !agentesYaAsignadosIds.contains(agente.getIdAgente()))
-            .filter(agente -> !isAgentOnLeave(agente, inicioServicio, finServicio, permisosPorAgente.get(agente.getIdAgente())))
-            .filter(agente -> isAgentOnShift(agente, inicioServicio, finServicio, turnosPorAgente.get(agente.getIdAgente())))
-            .filter(agente -> agente.getAerolineasPermitidas() != null && agente.getAerolineasPermitidas().contains(vuelo.getAerolinea()))
-            .filter(agente -> {
-                Genero generoRequerido = posicion.getGeneroRequerido();
-                return generoRequerido == Genero.OTRO || agente.getGenero() == generoRequerido;
-            })
-            .filter(agente -> {
-                if (!posicion.isRequiereEntrenamientoEspecial()) return true;
-                return agente.getPosicionesHabilitadas() != null && agente.getPosicionesHabilitadas().contains(posicion);
-            })
+            .filter(agente -> isAgentAvailable(agente, necesidad, turnosPorAgente.get(agente.getIdAgente()), permisosPorAgente.get(agente.getIdAgente())))
             .findFirst();
     }
 
     private Map.Entry<TipoConflicto, String> analizarCausaDeFallo(NecesidadVuelo necesidad, List<Agente> todosAgentes, List<Assignment> currentAssignmentsInLoop, Map<Long, List<Turno>> turnosPorAgente, Map<Long, List<Permiso>> permisosPorAgente) {
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         if (todosAgentes.isEmpty()) {
             return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERSONAL_DISPONIBLE, "No hay agentes activos en el sistema.");
         }
 
-        Set<Long> agentesYaAsignadosIds = currentAssignmentsInLoop.stream().filter(a -> a.getAgente() != null).map(a -> a.getAgente().getIdAgente()).collect(Collectors.toSet());
-        List<Agente> candidatos = todosAgentes.stream().filter(agente -> !agentesYaAsignadosIds.contains(agente.getIdAgente())).collect(Collectors.toList());
-        long totalCandidatosInicial = candidatos.size();
-        if (totalCandidatosInicial == 0) return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERSONAL_DISPONIBLE, "Todos los agentes ya están asignados a otra posición en este vuelo.");
+        Set<Long> agentesYaAsignadosIds = currentAssignmentsInLoop.stream()
+                .filter(a -> a.getAgente() != null)
+                .map(a -> a.getAgente().getIdAgente())
+                .collect(Collectors.toSet());
 
-        long countOnLeave = candidatos.stream().filter(agente -> isAgentOnLeave(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), permisosPorAgente.get(agente.getIdAgente()))).count();
-        candidatos.removeIf(agente -> isAgentOnLeave(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), permisosPorAgente.get(agente.getIdAgente())));
-        if (candidatos.isEmpty()) return new AbstractMap.SimpleEntry<>(TipoConflicto.CON_PERMISO_APROBADO, String.format("%d de %d agentes tenían permiso/ausencia.", countOnLeave, totalCandidatosInicial));
+        List<Agente> candidatos = todosAgentes.stream()
+                .filter(agente -> !agentesYaAsignadosIds.contains(agente.getIdAgente()))
+                .collect(Collectors.toList());
 
-        long countOffShift = candidatos.stream().filter(agente -> !isAgentOnShift(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), turnosPorAgente.get(agente.getIdAgente()))).count();
-        candidatos.removeIf(agente -> !isAgentOnShift(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), turnosPorAgente.get(agente.getIdAgente())));
-        if (candidatos.isEmpty()) return new AbstractMap.SimpleEntry<>(TipoConflicto.FUERA_DE_TURNO, String.format("El turno de %d agentes no cubría el horario de %s a %s.", countOffShift, necesidad.getInicioCobertura().format(timeFormatter), necesidad.getFinCobertura().format(timeFormatter)));
+        if (candidatos.isEmpty()) {
+            return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERSONAL_DISPONIBLE, "Todos los agentes ya están asignados a otra posición en este vuelo.");
+        }
 
-        long countNoAirlinePermission = candidatos.stream().filter(agente -> agente.getAerolineasPermitidas() == null || !agente.getAerolineasPermitidas().contains(necesidad.getVuelo().getAerolinea())).count();
-        candidatos.removeIf(agente -> agente.getAerolineasPermitidas() == null || !agente.getAerolineasPermitidas().contains(necesidad.getVuelo().getAerolinea()));
-        if (candidatos.isEmpty()) return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERMISO_AEROLINEA, String.format("%d agentes no tenían permiso para la aerolínea %s.", countNoAirlinePermission, necesidad.getVuelo().getAerolinea().getNombre()));
-
-        PosicionSeguridad posicion = necesidad.getPosicion();
-        long countNoGender = candidatos.stream().filter(agente -> !(posicion.getGeneroRequerido() == Genero.OTRO || agente.getGenero() == posicion.getGeneroRequerido())).count();
-        candidatos.removeIf(agente -> !(posicion.getGeneroRequerido() == Genero.OTRO || agente.getGenero() == posicion.getGeneroRequerido()));
-        if (candidatos.isEmpty()) return new AbstractMap.SimpleEntry<>(TipoConflicto.NO_CUMPLE_GENERO, String.format("%d agentes no cumplían el requisito de género '%s'.", countNoGender, posicion.getGeneroRequerido()));
-
-        long countNoSkill = candidatos.stream().filter(agente -> posicion.isRequiereEntrenamientoEspecial() && (agente.getPosicionesHabilitadas() == null || !agente.getPosicionesHabilitadas().contains(posicion))).count();
-        candidatos.removeIf(agente -> posicion.isRequiereEntrenamientoEspecial() && (agente.getPosicionesHabilitadas() == null || !agente.getPosicionesHabilitadas().contains(posicion)));
-        if (candidatos.isEmpty()) return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_HABILIDAD_REQUERIDA, String.format("%d agentes no tenían la habilidad '%s' requerida.", countNoSkill, posicion.getNombrePosicion()));
+        for (Agente agente : candidatos) {
+            if (isAgentOnLeave(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), permisosPorAgente.get(agente.getIdAgente()))) {
+                return new AbstractMap.SimpleEntry<>(TipoConflicto.CON_PERMISO_APROBADO, String.format("El agente %s tiene un permiso aprobado que se solapa.", agente.getNombreCompleto()));
+            }
+            if (!isAgentOnShift(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), turnosPorAgente.get(agente.getIdAgente()))) {
+                DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+                return new AbstractMap.SimpleEntry<>(TipoConflicto.FUERA_DE_TURNO, String.format("El turno del agente %s no cubre el horario de %s a %s.", agente.getNombreCompleto(), necesidad.getInicioCobertura().format(timeFormatter), necesidad.getFinCobertura().format(timeFormatter)));
+            }
+            if (!hasAirlinePermission(agente, necesidad.getVuelo().getAerolinea())) {
+                return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERMISO_AEROLINEA, String.format("El agente %s no tiene permiso para la aerolínea %s.", agente.getNombreCompleto(), necesidad.getVuelo().getAerolinea().getNombre()));
+            }
+            if (!meetsGenderRequirement(agente, necesidad.getPosicion())) {
+                return new AbstractMap.SimpleEntry<>(TipoConflicto.NO_CUMPLE_GENERO, String.format("El agente %s no cumple el requisito de género '%s'.", agente.getNombreCompleto(), necesidad.getPosicion().getGeneroRequerido()));
+            }
+            if (!hasRequiredSkill(agente, necesidad.getPosicion())) {
+                return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_HABILIDAD_REQUERIDA, String.format("El agente %s no tiene la habilidad '%s' requerida.", agente.getNombreCompleto(), necesidad.getPosicion().getNombrePosicion()));
+            }
+        }
         
-        return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERSONAL_DISPONIBLE, "No se encontró una causa específica del conflicto.");
+        return new AbstractMap.SimpleEntry<>(TipoConflicto.SIN_PERSONAL_DISPONIBLE, "No se encontró una causa específica del conflicto, pero ningún agente cumplió todos los criterios.");
+    }
+
+    private boolean isAgentAvailable(Agente agente, NecesidadVuelo necesidad, List<Turno> turnos, List<Permiso> permisos) {
+        return !isAgentOnLeave(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), permisos) &&
+               isAgentOnShift(agente, necesidad.getInicioCobertura(), necesidad.getFinCobertura(), turnos) &&
+               hasAirlinePermission(agente, necesidad.getVuelo().getAerolinea()) &&
+               meetsGenderRequirement(agente, necesidad.getPosicion()) &&
+               hasRequiredSkill(agente, necesidad.getPosicion());
     }
 
     private boolean isAgentOnShift(Agente agente, LocalDateTime inicioServicio, LocalDateTime finServicio, List<Turno> turnosDelAgente) {
@@ -167,6 +188,20 @@ public class SchedulerServiceImpl implements SchedulerService {
         return permisosDelAgente.stream().anyMatch(permiso -> permiso.getFechaInicio().isBefore(finServicio) && permiso.getFechaFin().isAfter(inicioServicio));
     }
 
+    private boolean hasAirlinePermission(Agente agente, Aerolinea aerolinea) {
+        return agente.getAerolineasPermitidas() != null && agente.getAerolineasPermitidas().contains(aerolinea);
+    }
+
+    private boolean meetsGenderRequirement(Agente agente, PosicionSeguridad posicion) {
+        Genero generoRequerido = posicion.getGeneroRequerido();
+        return generoRequerido == Genero.OTRO || agente.getGenero() == generoRequerido;
+    }
+
+    private boolean hasRequiredSkill(Agente agente, PosicionSeguridad posicion) {
+        if (!posicion.isRequiereEntrenamientoEspecial()) return true;
+        return agente.getPosicionesHabilitadas() != null && agente.getPosicionesHabilitadas().contains(posicion);
+    }
+
     @Override
     @Transactional
     public List<Agente> findCandidates(Long idVuelo, NecesidadVuelo necesidad, List<Assignment> currentAssignments) {
@@ -177,9 +212,10 @@ public class SchedulerServiceImpl implements SchedulerService {
         Map<Long, List<Turno>> turnosPorAgente = turnoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().collect(Collectors.groupingBy(t -> t.getAgente().getIdAgente()));
         Map<Long, List<Permiso>> permisosAprobadosPorAgente = permisoRepository.findByFechasSolapadasFetchingAgente(necesidad.getInicioCobertura(), necesidad.getFinCobertura()).stream().filter(p -> p.getEstadoSolicitud() == EstadoSolicitudPermiso.APROBADO).collect(Collectors.groupingBy(p -> p.getAgente().getIdAgente()));
         List<Agente> agentesYaAsignados = currentAssignments.stream().filter(a -> a.getAgente() != null).map(Assignment::getAgente).collect(Collectors.toList());
+        
         return agentesActivos.stream()
             .filter(agente -> !agentesYaAsignados.contains(agente))
-            .filter(agente -> findBestFitAgentFor(necesidad, List.of(agente), List.of(), turnosPorAgente, permisosAprobadosPorAgente).isPresent())
+            .filter(agente -> isAgentAvailable(agente, necesidad, turnosPorAgente.get(agente.getIdAgente()), permisosAprobadosPorAgente.get(agente.getIdAgente())))
             .collect(Collectors.toList());
     }
 

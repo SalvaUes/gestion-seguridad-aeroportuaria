@@ -25,7 +25,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.beans.factory.annotation.Autowired;
+ 
 
 @Route(value = "aerolineas", layout = MainLayout.class)
 @PageTitle("Aerolíneas | Gestión Seguridad")
@@ -35,7 +35,6 @@ public class AerolineaListView extends VerticalLayout {
     private final AerolineaService aerolineaService;
     private Grid<Aerolinea> grid = new Grid<>(Aerolinea.class, false);
 
-    @Autowired
     public AerolineaListView(AerolineaService aerolineaService) {
         this.aerolineaService = aerolineaService;
         addClassName("aerolinea-list-view");
